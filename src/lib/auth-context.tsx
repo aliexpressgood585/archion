@@ -89,7 +89,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       provider: 'google',
       options: {
         redirectTo: window.location.origin,
+        scopes: 'openid email profile',
         queryParams: { access_type: 'offline', prompt: 'consent' },
+        skipBrowserRedirect: false,
       },
     })
     return { error: error as Error | null }
