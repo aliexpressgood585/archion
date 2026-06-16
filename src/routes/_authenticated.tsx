@@ -1,18 +1,23 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, useNavigate, Outlet } from '@tanstack/react-router'
 import { AppLayout } from '@/components/layout/app-layout'
 import { useAuth } from '@/lib/auth-context'
 import { useEffect } from 'react'
 import { Spinner } from '@/components/ui/spinner'
 
 function AuthenticatedLayout() {
-  const { session, loading } = useAuth()
+  const { session, profile, loading } = useAuth()
   const navigate = useNavigate()
 
   useEffect(() => {
-    if (!loading && !session) {
+    if (loading) return
+    if (!session) {
       navigate({ to: '/auth/login' })
+      return
     }
-  }, [session, loading, navigate])
+    if (profile && !profile.organization_id) {
+      navigate({ to: '/onboarding' })
+    }
+  }, [session, profile, loading, navigate])
 
   if (loading) {
     return (
@@ -23,6 +28,11 @@ function AuthenticatedLayout() {
   }
 
   if (!session) return null
+
+  // New user with no org → render the onboarding page without the sidebar
+  if (profile && !profile.organization_id) {
+    return <Outlet />
+  }
 
   return <AppLayout />
 }
