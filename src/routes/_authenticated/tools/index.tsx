@@ -1,11 +1,16 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState, useRef } from 'react'
-import { ExternalLink, Eye, Monitor, Layers, Search, Upload, X, FolderOpen } from 'lucide-react'
+import { useState, useRef, lazy, Suspense } from 'react'
+import { ExternalLink, Eye, Monitor, Layers, Search, Upload, X, FolderOpen, Pencil, BarChart2 } from 'lucide-react'
 import { FileViewer } from '@/components/viewers/FileViewer'
+
+const FloorPlanEditor = lazy(() => import('@/components/tools/FloorPlanEditor').then(m => ({ default: m.FloorPlanEditor })))
+const GanttEditor = lazy(() => import('@/components/tools/GanttEditor').then(m => ({ default: m.GanttEditor })))
 
 export const Route = createFileRoute('/_authenticated/tools/')({
   component: ToolsPage,
 })
+
+type BrowserTool = 'floor-plan' | 'gantt'
 
 interface ToolInfo {
   id: string
@@ -19,7 +24,7 @@ interface ToolInfo {
   exportFormats: string[]
   websiteUrl?: string
   color: string
-  uriScheme?: string
+  browserTool?: BrowserTool
 }
 
 const TOOLS: ToolInfo[] = [
@@ -35,6 +40,7 @@ const TOOLS: ToolInfo[] = [
     exportFormats: ['ifc', 'dwg', 'pdf', 'nwc'],
     websiteUrl: 'https://www.autodesk.com/products/revit',
     color: 'bg-blue-500',
+    browserTool: 'floor-plan',
   },
   {
     id: 'autocad',
@@ -48,6 +54,7 @@ const TOOLS: ToolInfo[] = [
     exportFormats: ['dwg', 'dxf', 'pdf', 'png'],
     websiteUrl: 'https://www.autodesk.com/products/autocad',
     color: 'bg-red-500',
+    browserTool: 'floor-plan',
   },
   {
     id: 'archicad',
@@ -61,6 +68,7 @@ const TOOLS: ToolInfo[] = [
     exportFormats: ['ifc', 'dwg', 'pdf'],
     websiteUrl: 'https://graphisoft.com/solutions/archicad',
     color: 'bg-purple-500',
+    browserTool: 'floor-plan',
   },
   {
     id: 'sketchup',
@@ -74,6 +82,7 @@ const TOOLS: ToolInfo[] = [
     exportFormats: ['skp', 'dxf', 'obj', 'stl', 'png', 'jpg'],
     websiteUrl: 'https://www.sketchup.com',
     color: 'bg-red-400',
+    browserTool: 'floor-plan',
   },
   {
     id: 'rhino',
@@ -100,6 +109,7 @@ const TOOLS: ToolInfo[] = [
     exportFormats: ['ifc', 'dwg', 'pdf', 'obj'],
     websiteUrl: 'https://www.vectorworks.net',
     color: 'bg-green-500',
+    browserTool: 'floor-plan',
   },
   {
     id: 'chief_architect',
@@ -113,6 +123,7 @@ const TOOLS: ToolInfo[] = [
     exportFormats: ['pdf', 'dwg', 'obj', 'jpg'],
     websiteUrl: 'https://www.chiefarchitect.com',
     color: 'bg-orange-500',
+    browserTool: 'floor-plan',
   },
   {
     id: 'lumion',
@@ -295,6 +306,7 @@ const TOOLS: ToolInfo[] = [
     exportFormats: ['pdf', 'nwd'],
     websiteUrl: 'https://www.autodesk.com/products/navisworks',
     color: 'bg-gray-600',
+    browserTool: 'floor-plan',
   },
   {
     id: 'excel',
@@ -308,6 +320,7 @@ const TOOLS: ToolInfo[] = [
     exportFormats: ['xlsx', 'csv', 'pdf'],
     websiteUrl: 'https://www.microsoft.com/excel',
     color: 'bg-green-600',
+    browserTool: 'gantt',
   },
   {
     id: 'project',
@@ -321,6 +334,7 @@ const TOOLS: ToolInfo[] = [
     exportFormats: ['pdf', 'xlsx', 'xml'],
     websiteUrl: 'https://www.microsoft.com/project',
     color: 'bg-purple-600',
+    browserTool: 'gantt',
   },
 ]
 
@@ -333,7 +347,7 @@ interface LocalFile {
   toolId: string
 }
 
-function ToolCard({ tool, onFileOpen }: { tool: ToolInfo; onFileOpen: (f: LocalFile) => void }) {
+function ToolCard({ tool, onFileOpen, onBrowserTool }: { tool: ToolInfo; onFileOpen: (f: LocalFile) => void; onBrowserTool: (t: BrowserTool, label: string) => void }) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
 
@@ -417,12 +431,27 @@ function ToolCard({ tool, onFileOpen }: { tool: ToolInfo; onFileOpen: (f: LocalF
       </div>
 
       {/* Action area */}
-      <div className="border-t border-slate-100 p-3">
+      <div className="border-t border-slate-100 p-3 flex flex-col gap-2">
+        {tool.browserTool && (
+          <button
+            onClick={() => onBrowserTool(tool.browserTool!, tool.label)}
+            className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-medium text-sm transition ${
+              tool.browserTool === 'floor-plan'
+                ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                : 'bg-green-600 hover:bg-green-700 text-white'
+            }`}
+          >
+            {tool.browserTool === 'floor-plan'
+              ? <><Pencil className="w-4 h-4" /> ציור תוכנית</>
+              : <><BarChart2 className="w-4 h-4" /> פתח גאנט</>
+            }
+          </button>
+        )}
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-50 hover:bg-blue-50 hover:text-blue-700 border border-dashed border-slate-200 hover:border-blue-300 transition text-sm font-medium text-slate-600 group"
+          className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-dashed border-slate-200 transition text-sm font-medium text-slate-500 group"
         >
-          <FolderOpen className="w-4 h-4 group-hover:text-blue-500 transition" />
+          <FolderOpen className="w-3.5 h-3.5" />
           פתח קובץ מהמחשב
         </button>
         <input
@@ -432,7 +461,7 @@ function ToolCard({ tool, onFileOpen }: { tool: ToolInfo; onFileOpen: (f: LocalF
           accept={allAccepted || '*'}
           onChange={e => handleFiles(e.target.files)}
         />
-        <p className="text-center text-xs text-slate-400 mt-1.5">או גרור קובץ לכאן</p>
+        {!tool.browserTool && <p className="text-center text-xs text-slate-400">או גרור קובץ לכאן</p>}
       </div>
     </div>
   )
@@ -442,6 +471,7 @@ function ToolsPage() {
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('הכל')
   const [activeFile, setActiveFile] = useState<LocalFile | null>(null)
+  const [activeBrowserTool, setActiveBrowserTool] = useState<{ type: BrowserTool; label: string } | null>(null)
 
   const filtered = TOOLS.filter(t => {
     const matchCat = category === 'הכל' || t.category === category
@@ -507,7 +537,12 @@ function ToolsPage() {
       {/* Tools Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {filtered.map(tool => (
-          <ToolCard key={tool.id} tool={tool} onFileOpen={setActiveFile} />
+          <ToolCard
+            key={tool.id}
+            tool={tool}
+            onFileOpen={setActiveFile}
+            onBrowserTool={(type, label) => setActiveBrowserTool({ type, label })}
+          />
         ))}
       </div>
 
@@ -516,6 +551,38 @@ function ToolsPage() {
           <Search className="w-12 h-12 mx-auto mb-3 opacity-30" />
           <p className="font-medium">לא נמצאו תוכנות</p>
           <p className="text-sm mt-1">נסה חיפוש אחר</p>
+        </div>
+      )}
+
+      {/* Browser Tool Modal */}
+      {activeBrowserTool && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl my-4">
+            <div className="flex items-center justify-between p-4 border-b border-slate-200">
+              <div>
+                <h3 className="font-bold text-slate-800">
+                  {activeBrowserTool.type === 'floor-plan' ? '✏️ עורך תוכנית קומה' : '📅 לוח גאנט'}
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {activeBrowserTool.type === 'floor-plan'
+                    ? 'גרור ליצירת חדרים • ייצוא ל-PNG • תחליף ל-' + activeBrowserTool.label
+                    : 'ניהול לוח זמנים • תחליף ל-' + activeBrowserTool.label
+                  }
+                </p>
+              </div>
+              <button
+                onClick={() => setActiveBrowserTool(null)}
+                className="p-2 rounded-xl hover:bg-slate-100 transition text-slate-500"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4">
+              <Suspense fallback={<div className="flex items-center justify-center h-48 text-slate-400">טוען כלי...</div>}>
+                {activeBrowserTool.type === 'floor-plan' ? <FloorPlanEditor /> : <GanttEditor />}
+              </Suspense>
+            </div>
+          </div>
         </div>
       )}
 
