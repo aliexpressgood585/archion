@@ -5,23 +5,25 @@ import { useAuth } from '@/lib/auth-context'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import {
   ArrowRight, Building2, Calendar, DollarSign, FileText,
-  MessageSquare, CheckSquare, Plus, X, Upload, Paperclip, Zap, Images,
+  MessageSquare, CheckSquare, Plus, X, Upload, Paperclip, Zap, Images, Package,
 } from 'lucide-react'
 import type { Project, Client, Task, Invoice, Document, Comment } from '@/integrations/supabase/types'
 import { ProjectDeliverables } from './_project-deliverables'
 import { ProjectGallery } from './_project-gallery'
+import { ProjectSpecs } from './_project-specs'
 
 export const Route = createFileRoute('/_authenticated/projects/$projectId')({
   component: ProjectDetailPage,
 })
 
-type Tab = 'overview' | 'tasks' | 'budget' | 'documents' | 'deliverables' | 'gallery' | 'comments'
+type Tab = 'overview' | 'tasks' | 'budget' | 'documents' | 'deliverables' | 'gallery' | 'specs' | 'comments'
 
 const TAB_LABELS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: 'overview', label: 'סקירה כללית', icon: Building2 },
   { id: 'tasks', label: 'משימות', icon: CheckSquare },
   { id: 'deliverables', label: 'נושאי עבודה', icon: Zap },
   { id: 'gallery', label: 'גלריה', icon: Images },
+  { id: 'specs', label: 'מפרטים', icon: Package },
   { id: 'budget', label: 'תקציב', icon: DollarSign },
   { id: 'documents', label: 'מסמכים', icon: FileText },
   { id: 'comments', label: 'הערות', icon: MessageSquare },
@@ -338,6 +340,10 @@ function ProjectDetailPage() {
 
       {activeTab === 'gallery' && (
         <ProjectGallery projectId={projectId} />
+      )}
+
+      {activeTab === 'specs' && (
+        <ProjectSpecs projectId={projectId} />
       )}
 
       {/* Budget Tab */}
