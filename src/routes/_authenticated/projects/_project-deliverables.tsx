@@ -4,9 +4,16 @@ import { useAuth } from '@/lib/auth-context'
 import { formatDate } from '@/lib/utils'
 import {
   Plus, Upload, CheckCircle, Clock, AlertCircle,
-  FileCode2, Palette, Zap, Eye, Download
+  FileCode2, Palette, Zap, Eye, Download, X
 } from 'lucide-react'
 import type { Deliverable, DeliverableFile, ArchitectureTool } from '@/integrations/supabase/types'
+import { FileViewer } from '@/components/viewers/FileViewer'
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string
+
+function getPublicUrl(filePath: string) {
+  return `${SUPABASE_URL}/storage/v1/object/public/deliverables/${filePath}`
+}
 
 interface DeliverableWithFiles extends Deliverable {
   files: DeliverableFile[]
@@ -84,6 +91,7 @@ export function ProjectDeliverables({ projectId }: { projectId: string }) {
     due_date: '',
   })
   const [saving, setSaving] = useState(false)
+  const [viewingFile, setViewingFile] = useState<DeliverableFile | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const orgId = profile?.organization_id
@@ -242,23 +250,36 @@ export function ProjectDeliverables({ projectId }: { projectId: string }) {
                     {del.files?.length > 0 ? (
                       <div className="space-y-2">
                         {del.files.map(file => (
-                          <div key={file.id} className="flex items-center gap-2 p-2 rounded bg-slate-50">
-                            <Palette className="w-4 h-4 text-slate-400" />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-medium text-slate-700 truncate">
+                          <div key={file.id} className="flex items-center gap-2 p-2 rounded bg-slate-50 hover:bg-slate-100 transition">
+                            <Palette className="w-4 h-4 text-slate-400 shrink-0" />
+                            <button
+                              className="flex-1 min-w-0 text-right"
+                              onClick={(e) => { e.stopPropagation(); setViewingFile(file) }}
+                            >
+                              <p className="text-xs font-medium text-slate-700 truncate hover:text-blue-600">
                                 {file.file_name}
                               </p>
                               <p className="text-xs text-slate-400">
                                 v{file.version_number} • {formatDate(file.created_at)}
                               </p>
+                            </button>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setViewingFile(file) }}
+                                className="p-1 rounded hover:bg-slate-200 transition"
+                                title="צפה"
+                              >
+                                <Eye className="w-3.5 h-3.5 text-blue-500" />
+                              </button>
+                              <a
+                                href={getPublicUrl(file.file_path)}
+                                download
+                                onClick={e => e.stopPropagation()}
+                                className="p-1 rounded hover:bg-slate-200 transition"
+                              >
+                                <Download className="w-3.5 h-3.5 text-slate-500" />
+                              </a>
                             </div>
-                            <a
-                              href={`https://maggovnwssfqdbaqandv.supabase.co/storage/v1/object/public/deliverables/${file.file_path}`}
-                              download
-                              className="p-1 rounded hover:bg-slate-200 transition"
-                            >
-                              <Download className="w-3.5 h-3.5 text-slate-500" />
-                            </a>
                           </div>
                         ))}
                       </div>
@@ -300,6 +321,40 @@ export function ProjectDeliverables({ projectId }: { projectId: string }) {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* File Viewer Modal */}
+      {viewingFile && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl my-4">
+            <div className="flex items-center justify-between p-4 border-b border-slate-200">
+              <h3 className="font-semibold text-slate-800 truncate">{viewingFile.file_name}</h3>
+              <div className="flex items-center gap-2 shrink-0">
+                <a
+                  href={getPublicUrl(viewingFile.file_path)}
+                  download={viewingFile.file_name}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-medium text-slate-700 transition"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  הורד
+                </a>
+                <button
+                  onClick={() => setViewingFile(null)}
+                  className="p-1.5 rounded-lg hover:bg-slate-100 transition text-slate-500"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="p-4">
+              <FileViewer
+                url={getPublicUrl(viewingFile.file_path)}
+                fileName={viewingFile.file_name}
+                fileType={viewingFile.file_type ?? undefined}
+              />
+            </div>
+          </div>
         </div>
       )}
 
