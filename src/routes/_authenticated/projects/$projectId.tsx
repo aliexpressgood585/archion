@@ -5,24 +5,26 @@ import { useAuth } from '@/lib/auth-context'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import {
   ArrowRight, Building2, Calendar, DollarSign, FileText,
-  MessageSquare, CheckSquare, Plus, X, Upload, Paperclip, Zap, Images, Package,
+  MessageSquare, CheckSquare, Plus, X, Upload, Paperclip, Zap, Images, Package, Users,
 } from 'lucide-react'
 import type { Project, Client, Task, Invoice, Document, Comment } from '@/integrations/supabase/types'
 import { ProjectDeliverables } from './_project-deliverables'
 import { ProjectGallery } from './_project-gallery'
 import { ProjectSpecs } from './_project-specs'
+import { ProjectTeam } from './_project-team'
 
 export const Route = createFileRoute('/_authenticated/projects/$projectId')({
   component: ProjectDetailPage,
 })
 
-type Tab = 'overview' | 'tasks' | 'budget' | 'documents' | 'deliverables' | 'gallery' | 'specs' | 'comments'
+type Tab = 'overview' | 'tasks' | 'team' | 'deliverables' | 'gallery' | 'specs' | 'budget' | 'documents' | 'comments'
 
 const TAB_LABELS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: 'overview', label: 'סקירה כללית', icon: Building2 },
   { id: 'tasks', label: 'משימות', icon: CheckSquare },
-  { id: 'deliverables', label: 'נושאי עבודה', icon: Zap },
-  { id: 'gallery', label: 'גלריה', icon: Images },
+  { id: 'team', label: 'צוות', icon: Users },
+  { id: 'deliverables', label: 'נושאים', icon: Zap },
+  { id: 'gallery', label: 'תמונות', icon: Images },
   { id: 'specs', label: 'מפרטים', icon: Package },
   { id: 'budget', label: 'תקציב', icon: DollarSign },
   { id: 'documents', label: 'מסמכים', icon: FileText },
@@ -332,6 +334,10 @@ function ProjectDetailPage() {
           <TaskColumn title="בתהליך" tasks={inProgressTasks} status="in_progress" onAddTask={openAddTask} />
           <TaskColumn title="הושלם" tasks={doneTasks} status="done" onAddTask={openAddTask} />
         </div>
+      )}
+
+      {activeTab === 'team' && (
+        <ProjectTeam projectId={projectId} />
       )}
 
       {activeTab === 'deliverables' && (
