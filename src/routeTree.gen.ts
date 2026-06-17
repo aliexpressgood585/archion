@@ -22,6 +22,7 @@ import { Route as AuthenticatedPortalIndexRouteImport } from './routes/_authenti
 import { Route as AuthenticatedInvoicesIndexRouteImport } from './routes/_authenticated/invoices/index'
 import { Route as AuthenticatedDocumentsIndexRouteImport } from './routes/_authenticated/documents/index'
 import { Route as AuthenticatedClientsIndexRouteImport } from './routes/_authenticated/clients/index'
+import { Route as AuthenticatedToolsToolIdRouteImport } from './routes/_authenticated/tools/$toolId'
 import { Route as AuthenticatedProjectsProjectIdRouteImport } from './routes/_authenticated/projects/$projectId'
 import { Route as AuthenticatedClientsClientIdRouteImport } from './routes/_authenticated/clients/$clientId'
 
@@ -95,6 +96,12 @@ const AuthenticatedClientsIndexRoute =
     path: '/clients/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedToolsToolIdRoute =
+  AuthenticatedToolsToolIdRouteImport.update({
+    id: '/tools/$toolId',
+    path: '/tools/$toolId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedProjectsProjectIdRoute =
   AuthenticatedProjectsProjectIdRouteImport.update({
     id: '/projects/$projectId',
@@ -116,6 +123,7 @@ export interface FileRoutesByFullPath {
   '/auth/register': typeof AuthRegisterRoute
   '/clients/$clientId': typeof AuthenticatedClientsClientIdRoute
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
+  '/tools/$toolId': typeof AuthenticatedToolsToolIdRoute
   '/clients/': typeof AuthenticatedClientsIndexRoute
   '/documents/': typeof AuthenticatedDocumentsIndexRoute
   '/invoices/': typeof AuthenticatedInvoicesIndexRoute
@@ -132,6 +140,7 @@ export interface FileRoutesByTo {
   '/auth/register': typeof AuthRegisterRoute
   '/clients/$clientId': typeof AuthenticatedClientsClientIdRoute
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
+  '/tools/$toolId': typeof AuthenticatedToolsToolIdRoute
   '/clients': typeof AuthenticatedClientsIndexRoute
   '/documents': typeof AuthenticatedDocumentsIndexRoute
   '/invoices': typeof AuthenticatedInvoicesIndexRoute
@@ -150,6 +159,7 @@ export interface FileRoutesById {
   '/auth/register': typeof AuthRegisterRoute
   '/_authenticated/clients/$clientId': typeof AuthenticatedClientsClientIdRoute
   '/_authenticated/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
+  '/_authenticated/tools/$toolId': typeof AuthenticatedToolsToolIdRoute
   '/_authenticated/clients/': typeof AuthenticatedClientsIndexRoute
   '/_authenticated/documents/': typeof AuthenticatedDocumentsIndexRoute
   '/_authenticated/invoices/': typeof AuthenticatedInvoicesIndexRoute
@@ -168,6 +178,7 @@ export interface FileRouteTypes {
     | '/auth/register'
     | '/clients/$clientId'
     | '/projects/$projectId'
+    | '/tools/$toolId'
     | '/clients/'
     | '/documents/'
     | '/invoices/'
@@ -184,6 +195,7 @@ export interface FileRouteTypes {
     | '/auth/register'
     | '/clients/$clientId'
     | '/projects/$projectId'
+    | '/tools/$toolId'
     | '/clients'
     | '/documents'
     | '/invoices'
@@ -201,6 +213,7 @@ export interface FileRouteTypes {
     | '/auth/register'
     | '/_authenticated/clients/$clientId'
     | '/_authenticated/projects/$projectId'
+    | '/_authenticated/tools/$toolId'
     | '/_authenticated/clients/'
     | '/_authenticated/documents/'
     | '/_authenticated/invoices/'
@@ -310,6 +323,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedClientsIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/tools/$toolId': {
+      id: '/_authenticated/tools/$toolId'
+      path: '/tools/$toolId'
+      fullPath: '/tools/$toolId'
+      preLoaderRoute: typeof AuthenticatedToolsToolIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/projects/$projectId': {
       id: '/_authenticated/projects/$projectId'
       path: '/projects/$projectId'
@@ -332,6 +352,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedOnboardingRoute: typeof AuthenticatedOnboardingRoute
   AuthenticatedClientsClientIdRoute: typeof AuthenticatedClientsClientIdRoute
   AuthenticatedProjectsProjectIdRoute: typeof AuthenticatedProjectsProjectIdRoute
+  AuthenticatedToolsToolIdRoute: typeof AuthenticatedToolsToolIdRoute
   AuthenticatedClientsIndexRoute: typeof AuthenticatedClientsIndexRoute
   AuthenticatedDocumentsIndexRoute: typeof AuthenticatedDocumentsIndexRoute
   AuthenticatedInvoicesIndexRoute: typeof AuthenticatedInvoicesIndexRoute
@@ -346,6 +367,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedOnboardingRoute: AuthenticatedOnboardingRoute,
   AuthenticatedClientsClientIdRoute: AuthenticatedClientsClientIdRoute,
   AuthenticatedProjectsProjectIdRoute: AuthenticatedProjectsProjectIdRoute,
+  AuthenticatedToolsToolIdRoute: AuthenticatedToolsToolIdRoute,
   AuthenticatedClientsIndexRoute: AuthenticatedClientsIndexRoute,
   AuthenticatedDocumentsIndexRoute: AuthenticatedDocumentsIndexRoute,
   AuthenticatedInvoicesIndexRoute: AuthenticatedInvoicesIndexRoute,

@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useState, useRef, lazy, Suspense } from 'react'
 import { ExternalLink, Eye, Monitor, Layers, Search, Upload, X, FolderOpen, Pencil, BarChart2 } from 'lucide-react'
 import { FileViewer } from '@/components/viewers/FileViewer'
@@ -432,27 +432,30 @@ function ToolCard({ tool, onFileOpen, onBrowserTool }: { tool: ToolInfo; onFileO
 
       {/* Action area */}
       <div className="border-t border-slate-100 p-3 flex flex-col gap-2">
+        <Link
+          to="/tools/$toolId"
+          params={{ toolId: tool.id }}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-medium text-sm transition"
+        >
+          פתח כלי
+        </Link>
         {tool.browserTool && (
           <button
             onClick={() => onBrowserTool(tool.browserTool!, tool.label)}
-            className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-medium text-sm transition ${
-              tool.browserTool === 'floor-plan'
-                ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                : 'bg-green-600 hover:bg-green-700 text-white'
-            }`}
+            className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 transition text-sm font-medium text-slate-600"
           >
             {tool.browserTool === 'floor-plan'
-              ? <><Pencil className="w-4 h-4" /> ציור תוכנית</>
-              : <><BarChart2 className="w-4 h-4" /> פתח גאנט</>
+              ? <><Pencil className="w-3.5 h-3.5" /> ציור מהיר</>
+              : <><BarChart2 className="w-3.5 h-3.5" /> גאנט מהיר</>
             }
           </button>
         )}
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-dashed border-slate-200 transition text-sm font-medium text-slate-500 group"
+          className="w-full flex items-center justify-center gap-2 py-2 rounded-xl border border-dashed border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition text-xs text-slate-400 hover:text-blue-600"
         >
           <FolderOpen className="w-3.5 h-3.5" />
-          פתח קובץ מהמחשב
+          פתח קובץ
         </button>
         <input
           ref={fileInputRef}
@@ -461,7 +464,6 @@ function ToolCard({ tool, onFileOpen, onBrowserTool }: { tool: ToolInfo; onFileO
           accept={allAccepted || '*'}
           onChange={e => handleFiles(e.target.files)}
         />
-        {!tool.browserTool && <p className="text-center text-xs text-slate-400">או גרור קובץ לכאן</p>}
       </div>
     </div>
   )

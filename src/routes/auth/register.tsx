@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useAuth } from '@/lib/auth-context'
 import { useState } from 'react'
-import { Building2, Mail, Lock, User, UserPlus } from 'lucide-react'
+import { Building2, Mail, Lock, User, UserPlus, Send } from 'lucide-react'
 
 const registerSchema = z.object({
   fullName: z.string().min(2, 'שם חייב להכיל לפחות 2 תווים'),
@@ -27,6 +27,8 @@ function RegisterPage() {
   const navigate = useNavigate()
   const [globalError, setGlobalError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [needsConfirmation, setNeedsConfirmation] = useState(false)
+  const [registeredEmail, setRegisteredEmail] = useState('')
 
   const {
     register,
@@ -38,17 +40,29 @@ function RegisterPage() {
 
   const onSubmit = async (data: RegisterFormData) => {
     setGlobalError(null)
-    const { error } = await signUpWithEmail(data.email, data.password, data.fullName)
+    const { error, needsConfirmation: confirm } = await signUpWithEmail(data.email, data.password, data.fullName)
     if (error) {
-      if (error.message?.includes('already registered') || error.message?.includes('already exists')) {
-        setGlobalError('כתובת האימייל הזו כבר רשומה במערכת.')
+      const msg = error.message ?? ''
+      if (msg.includes('already registered') || msg.includes('already exists') || msg.includes('User already')) {
+        setGlobalError('כתובת האימייל הזו כבר רשומה — נסה להתחבר.')
+      } else if (msg.includes('password') || msg.includes('Password')) {
+        setGlobalError('הסיסמה חייבת להכיל לפחות 6 תווים.')
+      } else if (msg.includes('Invalid email') || msg.includes('valid email')) {
+        setGlobalError('כתובת אימייל לא תקינה.')
+      } else if (msg.includes('rate limit') || msg.includes('security purposes')) {
+        setGlobalError('יותר מדי ניסיונות — המתן מספר שניות ונסה שוב.')
       } else {
-        setGlobalError('ההרשמה נכשלה. נסה שוב.')
+        setGlobalError(`ההרשמה נכשלה: ${msg}`)
       }
       return
     }
+    if (confirm) {
+      setRegisteredEmail(data.email)
+      setNeedsConfirmation(true)
+      return
+    }
     setSuccess(true)
-    setTimeout(() => navigate({ to: '/dashboard' }), 2000)
+    setTimeout(() => navigate({ to: '/dashboard' }), 1500)
   }
 
   return (
@@ -68,6 +82,27 @@ function RegisterPage() {
 
         {/* Card */}
         <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl shadow-2xl p-8">
+
+          {needsConfirmation ? (
+            <div className="text-center py-4">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-500/20">
+                <Send className="h-7 w-7 text-blue-300" />
+              </div>
+              <h2 className="text-xl font-semibold text-white mb-2">בדוק את האימייל</h2>
+              <p className="text-slate-300 text-sm leading-relaxed">
+                שלחנו קישור אימות לכתובת<br />
+                <strong className="text-white">{registeredEmail}</strong>
+              </p>
+              <p className="mt-3 text-xs text-slate-400">לחץ על הקישור כדי לאשר את החשבון ולהיכנס למערכת</p>
+              <Link
+                to="/auth/login"
+                className="mt-6 inline-flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition"
+              >
+                מעבר לכניסה
+              </Link>
+            </div>
+          ) : (
+          <>
           <h2 className="text-xl font-semibold text-white mb-6 text-center">יצירת חשבון חדש</h2>
 
           {success && (
@@ -185,6 +220,8 @@ function RegisterPage() {
               כניסה
             </Link>
           </p>
+          </>
+          )}
         </div>
       </div>
     </div>

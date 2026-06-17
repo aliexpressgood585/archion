@@ -10,7 +10,7 @@ interface AuthContextValue {
   profile: Profile | null
   loading: boolean
   signInWithEmail: (email: string, password: string) => Promise<{ error: Error | null }>
-  signUpWithEmail: (email: string, password: string, fullName?: string) => Promise<{ error: Error | null }>
+  signUpWithEmail: (email: string, password: string, fullName?: string) => Promise<{ error: Error | null; needsConfirmation: boolean }>
   signInWithGoogle: () => Promise<{ error: Error | null }>
   signOut: () => Promise<void>
   updateProfile: (updates: Partial<Pick<Profile, 'full_name' | 'avatar_url' | 'phone' | 'title'>>) => Promise<{ error: Error | null }>
@@ -74,14 +74,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signUpWithEmail = useCallback(async (email: string, password: string, fullName?: string) => {
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: { full_name: fullName ?? '' },
+        emailRedirectTo: window.location.origin,
       },
     })
-    return { error: error as Error | null }
+    return { error: error as Error | null, needsConfirmation: !error && !data.session }
   }, [])
 
   const signInWithGoogle = useCallback(async () => {
