@@ -98,7 +98,6 @@ function DashboardPage() {
     const orgId = profile.organization_id
 
     async function fetchData() {
-      setLoading(true)
       try {
         const [projectsRes, tasksRes, invoicesRes] = await Promise.all([
           supabase

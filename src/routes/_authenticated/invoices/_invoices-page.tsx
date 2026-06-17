@@ -49,16 +49,17 @@ export function InvoicesPage() {
 
   useEffect(() => {
     if (!orgId) return
-    setLoading(true)
-    supabase
-      .from('invoices')
-      .select('*')
-      .eq('organization_id', orgId)
-      .order('issue_date', { ascending: false })
-      .then(({ data }) => {
-        setInvoices((data as Invoice[]) ?? [])
-        setLoading(false)
-      })
+    async function load() {
+      setLoading(true)
+      const { data } = await supabase
+        .from('invoices')
+        .select('*')
+        .eq('organization_id', orgId!)
+        .order('issue_date', { ascending: false })
+      setInvoices((data as Invoice[]) ?? [])
+      setLoading(false)
+    }
+    load()
   }, [orgId])
 
   const filtered = invoices.filter(

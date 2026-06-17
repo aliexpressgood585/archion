@@ -44,15 +44,16 @@ function SettingsPage() {
   const orgId = profile?.organization_id
 
   useEffect(() => {
-    if (profile) {
-      setProfileForm({
-        full_name: profile.full_name ?? '',
-        avatar_url: profile.avatar_url ?? '',
-        phone: profile.phone ?? '',
-        title: profile.title ?? '',
-      })
-    }
-  }, [profile])
+    if (!profile) return
+    const { full_name, avatar_url, phone, title } = profile
+    setProfileForm({
+      full_name: full_name ?? '',
+      avatar_url: avatar_url ?? '',
+      phone: phone ?? '',
+      title: title ?? '',
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id])
 
   useEffect(() => {
     if (!orgId) return

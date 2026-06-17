@@ -73,8 +73,12 @@ export function ProjectTeam({ projectId }: { projectId: string }) {
   }
 
   useEffect(() => {
-    setLoading(true)
-    fetchData().finally(() => setLoading(false))
+    async function load() {
+      setLoading(true)
+      await fetchData()
+      setLoading(false)
+    }
+    load()
   }, [orgId, projectId])
 
   const handleAddMember = async (e: React.FormEvent) => {

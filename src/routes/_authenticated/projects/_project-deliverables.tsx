@@ -101,8 +101,12 @@ export function ProjectDeliverables({ projectId }: { projectId: string }) {
   }
 
   useEffect(() => {
-    setLoading(true)
-    fetchDeliverables().finally(() => setLoading(false))
+    async function load() {
+      setLoading(true)
+      await fetchDeliverables()
+      setLoading(false)
+    }
+    load()
   }, [orgId, projectId])
 
   const handleCreateDeliverable = async (e: React.FormEvent) => {

@@ -79,8 +79,12 @@ function ClientsPage() {
 
   useEffect(() => {
     if (!orgId) return
-    setLoading(true)
-    fetchClients().finally(() => setLoading(false))
+    async function load() {
+      setLoading(true)
+      await fetchClients()
+      setLoading(false)
+    }
+    load()
   }, [orgId])
 
   const filtered = clients.filter(c =>
@@ -116,7 +120,7 @@ function ClientsPage() {
     setShowModal(false)
     setForm(INITIAL_FORM)
     setLoading(true)
-    fetchClients().finally(() => setLoading(false))
+    fetchClients().then(() => setLoading(false))
   }
 
   return (

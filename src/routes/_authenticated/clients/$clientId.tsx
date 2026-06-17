@@ -92,8 +92,12 @@ function ClientDetailPage() {
 
   useEffect(() => {
     if (!orgId) return
-    setLoading(true)
-    fetchAll().finally(() => setLoading(false))
+    async function load() {
+      setLoading(true)
+      await fetchAll()
+      setLoading(false)
+    }
+    load()
   }, [orgId, clientId])
 
   const handleCreateProposal = async (e: React.FormEvent) => {

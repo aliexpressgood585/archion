@@ -56,7 +56,6 @@ function DocumentsPage() {
   useEffect(() => {
     if (!orgId) return
     async function init() {
-      setLoading(true)
       const [, projectsRes] = await Promise.all([
         fetchDocuments(),
         supabase.from('projects').select('id, name').eq('organization_id', orgId!).order('name'),
@@ -64,11 +63,14 @@ function DocumentsPage() {
       setProjects((projectsRes.data as Project[]) ?? [])
       setLoading(false)
     }
+    setLoading(true)
     init()
   }, [orgId])
 
   useEffect(() => {
-    if (!loading) fetchDocuments()
+    if (loading) return
+    fetchDocuments()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectFilter])
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -47,8 +47,12 @@ export function ProjectGallery({ projectId }: { projectId: string }) {
   }
 
   useEffect(() => {
-    setLoading(true)
-    fetchImages().finally(() => setLoading(false))
+    async function load() {
+      setLoading(true)
+      await fetchImages()
+      setLoading(false)
+    }
+    load()
   }, [orgId, projectId])
 
   const handleFileSelect = async (files: FileList | null) => {
