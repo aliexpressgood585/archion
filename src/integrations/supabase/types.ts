@@ -556,3 +556,68 @@ export type Document = Database['public']['Tables']['documents']['Row']
 export type Notification = Database['public']['Tables']['notifications']['Row']
 export type Comment = Database['public']['Tables']['comments']['Row']
 export type Proposal = Database['public']['Tables']['proposals']['Row']
+
+// Deliverables system types
+export type ArchitectureTool =
+  | 'revit' | 'autocad' | 'archicad' | 'sketchup' | 'rhino' | 'vectorworks'
+  | 'chief_architect' | 'lumion' | 'enscape' | 'vray' | 'corona' | 'twinmotion'
+  | 'unreal_engine' | 'd5_render' | '3ds_max' | 'photoshop' | 'illustrator'
+  | 'indesign' | 'blender' | 'autodesk_forma' | 'navisworks' | 'excel' | 'project' | 'other'
+
+export type DeliverableCategory =
+  | 'concept' | 'schematic' | 'design_dev' | 'construction_docs'
+  | 'rendering' | 'animation' | 'specifications' | 'bom'
+  | 'schedules' | 'reports' | 'site_photos' | 'other'
+
+export type DeliverableStatus = 'pending' | 'in_progress' | 'review' | 'approved' | 'archived'
+export type DeliverableApprovalStatus = 'pending' | 'approved' | 'rejected'
+
+export interface Deliverable {
+  id: string
+  organization_id: string
+  project_id: string
+  name: string
+  description: string | null
+  category: DeliverableCategory
+  required_tools: ArchitectureTool[]
+  due_date: string | null
+  assigned_to: string | null
+  status: DeliverableStatus
+  approval_status: DeliverableApprovalStatus
+  sort_order: number
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface DeliverableFile {
+  id: string
+  deliverable_id: string
+  organization_id: string
+  project_id: string
+  file_name: string
+  file_path: string
+  file_size: number | null
+  file_type: string | null
+  tool_used: ArchitectureTool
+  version_number: number
+  description: string | null
+  uploaded_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface DeliverableComment {
+  id: string
+  deliverable_id: string
+  organization_id: string
+  author_id: string
+  content: string
+  status: 'comment' | 'review' | 'revision_request' | null
+  edited_at: string | null
+  created_at: string
+}
+
+export type DeliverableInsert = Omit<Deliverable, 'id' | 'created_at' | 'updated_at'>
+export type DeliverableFileInsert = Omit<DeliverableFile, 'id' | 'created_at' | 'updated_at'>
+export type DeliverableCommentInsert = Omit<DeliverableComment, 'id' | 'created_at'>

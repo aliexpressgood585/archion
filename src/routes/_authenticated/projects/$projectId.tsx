@@ -5,19 +5,21 @@ import { useAuth } from '@/lib/auth-context'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import {
   ArrowRight, Building2, Calendar, DollarSign, FileText,
-  MessageSquare, CheckSquare, Plus, X, Upload, Paperclip,
+  MessageSquare, CheckSquare, Plus, X, Upload, Paperclip, Zap,
 } from 'lucide-react'
 import type { Project, Client, Task, Invoice, Document, Comment } from '@/integrations/supabase/types'
+import { ProjectDeliverables } from './_project-deliverables'
 
 export const Route = createFileRoute('/_authenticated/projects/$projectId')({
   component: ProjectDetailPage,
 })
 
-type Tab = 'overview' | 'tasks' | 'budget' | 'documents' | 'comments'
+type Tab = 'overview' | 'tasks' | 'budget' | 'documents' | 'deliverables' | 'comments'
 
 const TAB_LABELS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: 'overview', label: 'סקירה כללית', icon: Building2 },
   { id: 'tasks', label: 'משימות', icon: CheckSquare },
+  { id: 'deliverables', label: 'נושאי עבודה', icon: Zap },
   { id: 'budget', label: 'תקציב', icon: DollarSign },
   { id: 'documents', label: 'מסמכים', icon: FileText },
   { id: 'comments', label: 'הערות', icon: MessageSquare },
@@ -326,6 +328,10 @@ function ProjectDetailPage() {
           <TaskColumn title="בתהליך" tasks={inProgressTasks} status="in_progress" onAddTask={openAddTask} />
           <TaskColumn title="הושלם" tasks={doneTasks} status="done" onAddTask={openAddTask} />
         </div>
+      )}
+
+      {activeTab === 'deliverables' && (
+        <ProjectDeliverables projectId={projectId} />
       )}
 
       {/* Budget Tab */}
