@@ -165,6 +165,30 @@ export function FloorPlanEditor() {
     return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onKeyUp) }
   }, [selected, elements, histIdx, history])
 
+  // Persist a quantity summary so other tools (Excel BOQ) can import it
+  useEffect(() => {
+    const roomList = elements.filter((el): el is Room => el.kind === 'room')
+    const wallList = elements.filter((el): el is Wall => el.kind === 'wall')
+    const doorCount = elements.filter(el => el.kind === 'door').length
+    const winCount = elements.filter(el => el.kind === 'window').length
+    const wallLength = wallList.reduce((s, w) =>
+      s + Math.sqrt((w.x2 - w.x1) ** 2 + (w.y2 - w.y1) ** 2) / SCALE, 0)
+    const summary = {
+      updatedAt: Date.now(),
+      rooms: roomList.map(r => ({
+        name: r.name,
+        w: r.w / SCALE,
+        h: r.h / SCALE,
+        area: (r.w / SCALE) * (r.h / SCALE),
+      })),
+      totalArea: roomList.reduce((s, r) => s + (r.w / SCALE) * (r.h / SCALE), 0),
+      wallLength,
+      doorCount,
+      windowCount: winCount,
+    }
+    try { localStorage.setItem('archion_floorplan', JSON.stringify(summary)) } catch { /* ignore quota */ }
+  }, [elements])
+
   function getSvgCoords(e: React.MouseEvent): { x: number; y: number } {
     const rect = svgRef.current!.getBoundingClientRect()
     return {

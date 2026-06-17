@@ -5,12 +5,17 @@ import { FileViewer } from '@/components/viewers/FileViewer'
 
 const FloorPlanEditor = lazy(() => import('@/components/tools/FloorPlanEditor').then(m => ({ default: m.FloorPlanEditor })))
 const GanttEditor = lazy(() => import('@/components/tools/GanttEditor').then(m => ({ default: m.GanttEditor })))
+const Viewer3D = lazy(() => import('@/components/tools/Viewer3D').then(m => ({ default: m.Viewer3D })))
+const ImageEditor = lazy(() => import('@/components/tools/ImageEditor').then(m => ({ default: m.ImageEditor })))
+const SpreadsheetEditor = lazy(() => import('@/components/tools/SpreadsheetEditor').then(m => ({ default: m.SpreadsheetEditor })))
+const FormaAnalysis = lazy(() => import('@/components/tools/FormaAnalysis').then(m => ({ default: m.FormaAnalysis })))
+const ClashDetective = lazy(() => import('@/components/tools/ClashDetective').then(m => ({ default: m.ClashDetective })))
 
 export const Route = createFileRoute('/_authenticated/tools/$toolId')({
   component: ToolDetailPage,
 })
 
-type ToolType = 'floor-plan' | '3d-viewer' | 'render-gallery' | 'design-viewer' | 'gantt'
+type ToolType = 'floor-plan' | '3d-viewer' | 'render-gallery' | 'design-viewer' | 'gantt' | 'image-editor' | 'spreadsheet' | 'forma-analysis' | 'clash-detective'
 
 interface ToolDef {
   label: string
@@ -125,23 +130,23 @@ const TOOLS: Record<string, ToolDef> = {
   },
   photoshop: {
     label: 'Adobe Photoshop', icon: '🎨', color: 'text-blue-700', bg: 'bg-blue-600',
-    type: 'design-viewer',
+    type: 'image-editor',
     description: 'עריכת תמונות ורנדורים — פוסט-פרודקשן, קולאז׳ קונספטואלי',
-    tip: 'גרור תמונות PNG/JPG/WEBP לצפייה ובדיקה',
+    tip: 'גרור תמונות PNG/JPG/WEBP לעריכה: בהירות, ניגודיות, חיתוך, טקסט',
     formats: ['psd','png','jpg'], acceptedMime: '.psd,.png,.jpg,.jpeg,.webp,.svg,.tiff',
   },
   illustrator: {
     label: 'Adobe Illustrator', icon: '✏️', color: 'text-orange-600', bg: 'bg-orange-500',
-    type: 'design-viewer',
+    type: 'image-editor',
     description: 'עיצוב גרפי וקטורי — תכניות צבע, לוגואים, אינפוגרפיקה',
-    tip: 'גרור SVG או PDF לצפייה ישירה',
+    tip: 'גרור תמונה או PDF לעריכה ישירה',
     formats: ['ai','svg','pdf'], acceptedMime: '.ai,.svg,.pdf,.eps,.png,.jpg',
   },
   indesign: {
     label: 'Adobe InDesign', icon: '📖', color: 'text-pink-700', bg: 'bg-pink-600',
-    type: 'design-viewer',
+    type: 'image-editor',
     description: 'עיצוב פרסומים — פנקסי תכנון, קטלוגים, ספרי פרויקט',
-    tip: 'גרור PDF לצפייה ישירה עם ניווט עמודים',
+    tip: 'גרור PDF לצפייה ועריכה, או תמונה לעיצוב',
     formats: ['indd','pdf'], acceptedMime: '.indd,.idml,.pdf,.png,.jpg',
   },
   blender: {
@@ -150,6 +155,41 @@ const TOOLS: Record<string, ToolDef> = {
     description: 'מודלינג ורנדור חינמי ופתוח — Cycles, Eevee, אנימציה',
     tip: 'ייצא מ-Blender ל-GLB/OBJ/STL וגרור לצפייה תלת-ממדית',
     formats: ['blend','glb','obj','stl'], acceptedMime: '.blend,.glb,.gltf,.obj,.stl,.fbx',
+  },
+  autodesk_forma: {
+    label: 'Autodesk Forma', icon: '🌍', color: 'text-blue-700', bg: 'bg-blue-700',
+    type: 'forma-analysis',
+    description: 'פלטפורמת תכנון מבוססת ענן לשלבי תכנון מוקדמים — ניתוחי אור, צל ורוח',
+    tip: 'הצב מבנים, הרץ ניתוח קרינה סולארית וצפה במפת חום של שעות שמש',
+    formats: ['ifc','dwg','pdf'], acceptedMime: '.ifc,.dwg,.pdf,.png,.jpg',
+  },
+  navisworks: {
+    label: 'Navisworks', icon: '🔍', color: 'text-gray-600', bg: 'bg-gray-600',
+    type: 'clash-detective',
+    description: 'תיאום BIM וזיהוי התנגשויות — מאחד מודלים ממספר תוכנות',
+    tip: 'הוסף אלמנטים בשכבות דיסציפלינה והרץ Clash Detective לזיהוי התנגשויות',
+    formats: ['nwd','nwc','nwf','ifc'], acceptedMime: '.nwd,.nwc,.nwf,.ifc,.pdf,.png,.jpg',
+  },
+  chief_architect: {
+    label: 'Chief Architect', icon: '🏠', color: 'text-orange-600', bg: 'bg-orange-500',
+    type: 'floor-plan',
+    description: 'BIM לאדריכלות מגורים — בתי מגורים ועיצוב פנים עם אוטומציה מובנית',
+    tip: 'ציור תוכנית קומה לבית מגורים — ייצוא ל-PNG',
+    formats: ['plan','layout'], acceptedMime: '.plan,.layout,.pdf,.png,.jpg',
+  },
+  excel: {
+    label: 'Microsoft Excel', icon: '📊', color: 'text-green-700', bg: 'bg-green-600',
+    type: 'spreadsheet',
+    description: 'גיליון אלקטרוני לניהול תקציב, כמויות חומרים ולוחות זמנים',
+    tip: 'גיליון אלקטרוני מלא: נוסחאות SUM/AVERAGE/MAX/MIN, עיצוב, ייבוא/ייצוא CSV',
+    formats: ['xlsx','xls','csv'], acceptedMime: '.xlsx,.xls,.csv,.ods',
+  },
+  project: {
+    label: 'MS Project', icon: '📅', color: 'text-purple-700', bg: 'bg-purple-600',
+    type: 'gantt',
+    description: 'ניהול לוחות זמנים ומשאבים לפרויקטי בנייה — Gantt, critical path',
+    tip: 'ניהול לוח זמנים בגאנט — הוסף משימות, תאריכים ואחוז ביצוע',
+    formats: ['mpp','mpt','xlsx','csv'], acceptedMime: '.mpp,.mpt,.xlsx,.csv,.pdf',
   },
 }
 
@@ -254,21 +294,11 @@ function ToolDetailPage() {
                 <Suspense fallback={<div className="flex items-center justify-center h-32 text-slate-400 text-sm">טוען כלי...</div>}>
                   {tool.type === 'floor-plan' && <FloorPlanEditor />}
                   {tool.type === 'gantt' && <GanttEditor />}
-                  {tool.type === '3d-viewer' && (
-                    <div
-                      className={`border-2 border-dashed rounded-xl flex flex-col items-center justify-center gap-3 py-14 cursor-pointer transition ${
-                        dragging ? 'border-blue-400 bg-blue-50' : 'border-slate-200 hover:border-blue-300'
-                      }`}
-                      onDragOver={e => { e.preventDefault(); setDragging(true) }}
-                      onDragLeave={() => setDragging(false)}
-                      onDrop={e => { e.preventDefault(); setDragging(false); handleFiles(e.dataTransfer.files) }}
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      <span className="text-4xl">{tool.icon}</span>
-                      <p className="text-slate-600 font-medium">גרור קובץ 3D לצפייה</p>
-                      <p className="text-slate-400 text-sm">{tool.formats.map(f => `.${f}`).join(' • ')}</p>
-                    </div>
-                  )}
+                  {tool.type === '3d-viewer' && <Viewer3D />}
+                  {tool.type === 'image-editor' && <ImageEditor />}
+                  {tool.type === 'spreadsheet' && <SpreadsheetEditor />}
+                  {tool.type === 'forma-analysis' && <FormaAnalysis />}
+                  {tool.type === 'clash-detective' && <ClashDetective />}
                 </Suspense>
               </div>
             )}

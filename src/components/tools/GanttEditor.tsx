@@ -1,5 +1,6 @@
-import { useRef, useState } from 'react'
-import { Plus, Trash2, ChevronRight, ChevronLeft } from 'lucide-react'
+import { useRef, useState, useEffect } from 'react'
+import { Plus, Trash2, ChevronRight, ChevronLeft, FolderDown, RefreshCw } from 'lucide-react'
+import { supabase } from '@/integrations/supabase/client'
 
 interface GanttTask {
   id: string
@@ -8,6 +9,28 @@ interface GanttTask {
   end: string
   color: string
   category: string
+}
+
+interface DbProject {
+  id: string
+  name: string
+  start_date: string | null
+  end_date: string | null
+  status: string
+}
+
+interface DbTask {
+  id: string
+  title: string
+  status: string
+  priority: string
+  due_date: string | null
+  created_at: string
+}
+
+const STATUS_COLOR: Record<string, string> = {
+  todo: '#94a3b8', in_progress: '#3b82f6', review: '#f59e0b',
+  done: '#10b981', blocked: '#ef4444',
 }
 
 const COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#84cc16','#f97316','#6366f1']
@@ -42,6 +65,75 @@ export function GanttEditor() {
   const VIEW_DAYS = 42
 
   const viewEnd = addDays(viewStart, VIEW_DAYS)
+
+  // ── Dashboard / Supabase integration ──
+  const [dbProjects, setDbProjects] = useState<DbProject[]>([])
+  const [selectedProject, setSelectedProject] = useState('')
+  const [loadingDb, setLoadingDb] = useState(false)
+  const [dbNote, setDbNote] = useState<string | null>(null)
+
+  async function loadProjects() {
+    setLoadingDb(true)
+    setDbNote(null)
+    const { data, error } = await supabase
+      .from('projects')
+      .select('id,name,start_date,end_date,status')
+      .order('start_date', { ascending: true })
+    setLoadingDb(false)
+    if (error) { setDbNote('לא ניתן לטעון פרויקטים — התחבר כדי לסנכרן עם הדשבורד'); return }
+    const rows = (data ?? []) as DbProject[]
+    setDbProjects(rows)
+    if (rows.length === 0) setDbNote('אין פרויקטים בדשבורד עדיין')
+  }
+
+  useEffect(() => { loadProjects() }, [])
+
+  // Import all projects as phase bars (uses project start/end dates from the Dashboard)
+  function importProjectsAsPhases() {
+    const phases: GanttTask[] = dbProjects
+      .filter(p => p.start_date)
+      .map(p => ({
+        id: 'proj-' + p.id,
+        name: p.name,
+        start: p.start_date!.slice(0, 10),
+        end: (p.end_date ?? addDays(p.start_date!.slice(0, 10), 30)).slice(0, 10),
+        color: COLORS[colorIdx.current++ % COLORS.length],
+        category: 'ביצוע',
+      }))
+    if (phases.length === 0) { setDbNote('אין פרויקטים עם תאריך התחלה'); return }
+    setTasks(phases)
+    setViewStart(phases[0].start)
+  }
+
+  // Import the tasks of one project (uses each task's created_at → due_date span)
+  async function importProjectTasks(projectId: string) {
+    if (!projectId) return
+    setLoadingDb(true)
+    setDbNote(null)
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('id,title,status,priority,due_date,created_at')
+      .eq('project_id', projectId)
+    setLoadingDb(false)
+    if (error) { setDbNote('לא ניתן לטעון משימות'); return }
+    const rows = (data ?? []) as DbTask[]
+    if (rows.length === 0) { setDbNote('לפרויקט זה אין משימות'); return }
+    const imported: GanttTask[] = rows.map(t => {
+      const start = (t.created_at ?? today).slice(0, 10)
+      const end = t.due_date ? t.due_date.slice(0, 10) : addDays(start, 7)
+      return {
+        id: 'task-' + t.id,
+        name: t.title,
+        start,
+        end: end <= start ? addDays(start, 1) : end,
+        color: STATUS_COLOR[t.status] ?? COLORS[colorIdx.current++ % COLORS.length],
+        category: t.status === 'done' ? 'הגשה' : 'ביצוע',
+      }
+    })
+    setTasks(imported)
+    const earliest = imported.reduce((a, b) => (a.start < b.start ? a : b)).start
+    setViewStart(earliest)
+  }
 
   function addTask() {
     if (!form.name.trim() || !form.start || !form.end) return
@@ -89,6 +181,43 @@ export function GanttEditor() {
 
   return (
     <div className="flex flex-col gap-4" dir="rtl">
+      {/* Dashboard sync bar */}
+      <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 flex flex-wrap items-end gap-3">
+        <div className="flex items-center gap-2 text-purple-700">
+          <FolderDown className="w-4 h-4" />
+          <span className="text-sm font-semibold">סנכרון עם הדשבורד</span>
+        </div>
+        <div className="flex-1 min-w-40">
+          <label className="text-xs text-slate-500 mb-1 block">ייבא משימות מפרויקט</label>
+          <select
+            value={selectedProject}
+            onChange={e => { setSelectedProject(e.target.value); importProjectTasks(e.target.value) }}
+            disabled={loadingDb || dbProjects.length === 0}
+            className="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
+          >
+            <option value="">— בחר פרויקט —</option>
+            {dbProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </div>
+        <button
+          onClick={importProjectsAsPhases}
+          disabled={loadingDb || dbProjects.length === 0}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition"
+        >
+          <FolderDown className="w-4 h-4" />
+          כל הפרויקטים כשלבים
+        </button>
+        <button
+          onClick={loadProjects}
+          disabled={loadingDb}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-600 rounded-lg text-sm font-medium transition"
+          title="רענן"
+        >
+          <RefreshCw className={`w-4 h-4 ${loadingDb ? 'animate-spin' : ''}`} />
+        </button>
+        {dbNote && <span className="text-xs text-slate-500 w-full">{dbNote}</span>}
+      </div>
+
       {/* Add task form */}
       <div className="bg-slate-50 rounded-xl border border-slate-200 p-4">
         <h4 className="text-sm font-semibold text-slate-700 mb-3">הוסף משימה</h4>

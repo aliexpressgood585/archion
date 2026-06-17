@@ -11,12 +11,15 @@ import {
   ChevronRight,
   LogOut,
   Wrench,
+  ShieldOff,
+  ShieldCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { Avatar } from '@/components/ui/avatar'
 import type { TranslationKey } from '@/lib/i18n'
+import { isAuthBypassed, toggleAuthBypass } from '@/routes/_authenticated'
 
 interface NavItem {
   to: string
@@ -128,6 +131,24 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
           )}
         >
           En
+        </button>
+      </div>
+
+      {/* Auth bypass toggle */}
+      <div className={cn('border-t border-slate-700/60 px-3 py-2', collapsed && 'flex justify-center')}>
+        <button
+          onClick={toggleAuthBypass}
+          title={isAuthBypassed() ? 'הפעל אימות' : 'כבה אימות'}
+          className={cn(
+            'flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors w-full',
+            isAuthBypassed()
+              ? 'bg-amber-500/20 text-amber-300 hover:bg-amber-500/30'
+              : 'text-slate-400 hover:bg-slate-800 hover:text-white',
+            collapsed && 'justify-center w-auto'
+          )}
+        >
+          {isAuthBypassed() ? <ShieldOff className="h-4 w-4 shrink-0" /> : <ShieldCheck className="h-4 w-4 shrink-0" />}
+          {!collapsed && (isAuthBypassed() ? 'ללא אימות — לחץ להפעיל' : 'אימות פעיל')}
         </button>
       </div>
 
