@@ -1,168 +1,90 @@
-import { useEffect, useRef, useState } from 'react'
-import * as THREE from 'three'
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import { Download, Layers } from 'lucide-react'
+import { Download, Layers, Box, Info } from 'lucide-react'
 
 interface IfcViewerProps {
   url: string
   fileName?: string
 }
 
+const BIM_APPS = [
+  { name: 'Autodesk Revit', icon: '🏛️', ext: 'rvt' },
+  { name: 'ArchiCAD', icon: '🏗️', ext: 'pln' },
+  { name: 'Navisworks', icon: '🔍', ext: 'nwd' },
+  { name: 'Rhino 3D', icon: '🦏', ext: '3dm' },
+]
+
 export function IfcViewer({ url, fileName }: IfcViewerProps) {
-  const mountRef = useRef<HTMLDivElement>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [elementCount, setElementCount] = useState(0)
-
-  useEffect(() => {
-    let destroyed = false
-    let renderer: THREE.WebGLRenderer | null = null
-    let frameId = 0
-
-    async function init() {
-      if (!mountRef.current) return
-      const mount = mountRef.current
-      const w = mount.clientWidth
-      const h = mount.clientHeight || 480
-
-      const scene = new THREE.Scene()
-      scene.background = new THREE.Color(0x1a2332)
-
-      const camera = new THREE.PerspectiveCamera(45, w / h, 0.01, 10000)
-      camera.position.set(20, 20, 20)
-
-      renderer = new THREE.WebGLRenderer({ antialias: true })
-      renderer.setSize(w, h)
-      renderer.setPixelRatio(window.devicePixelRatio)
-      mount.appendChild(renderer.domElement)
-
-      const controls = new OrbitControls(camera, renderer.domElement)
-      controls.enableDamping = true
-
-      const ambient = new THREE.AmbientLight(0xffffff, 0.7)
-      scene.add(ambient)
-      const dir = new THREE.DirectionalLight(0xffffff, 1)
-      dir.position.set(10, 20, 10)
-      scene.add(dir)
-
-      const grid = new THREE.GridHelper(50, 50, 0x334155, 0x1e293b)
-      scene.add(grid)
-
-      try {
-        const { IfcLoader } = await import('@thatopen/components')
-        const { Components } = await import('@thatopen/components')
-
-        if (destroyed) return
-
-        const components = new Components()
-        const ifcLoader = components.get(IfcLoader)
-        ifcLoader.settings.wasm = {
-          path: 'https://unpkg.com/web-ifc@0.0.57/',
-          absolute: true,
-        }
-        await ifcLoader.setup()
-
-        const response = await fetch(url)
-        const buffer = await response.arrayBuffer()
-        const data = new Uint8Array(buffer)
-        const model = await (ifcLoader.load as any)(data, true, 'model') as any
-
-        if (destroyed) return
-
-        scene.add(model)
-
-        let count = 0
-        model.traverse?.(() => count++)
-        if (!destroyed) setElementCount(count)
-
-        const box = new THREE.Box3().setFromObject(model)
-        const center = box.getCenter(new THREE.Vector3())
-        const size = box.getSize(new THREE.Vector3())
-        const maxDim = Math.max(size.x, size.y, size.z)
-        camera.position.set(center.x + maxDim, center.y + maxDim * 0.8, center.z + maxDim)
-        controls.target.copy(center)
-        controls.update()
-
-        if (!destroyed) setLoading(false)
-      } catch {
-        if (!destroyed) {
-          setError('לא ניתן לטעון קובץ IFC בדפדפן')
-          setLoading(false)
-        }
-        return
-      }
-
-      function animate() {
-        if (destroyed) return
-        frameId = requestAnimationFrame(animate)
-        controls.update()
-        renderer!.render(scene, camera)
-      }
-      animate()
-
-      function onResize() {
-        if (!mount || !renderer) return
-        const w = mount.clientWidth
-        const h = mount.clientHeight || 480
-        camera.aspect = w / h
-        camera.updateProjectionMatrix()
-        renderer.setSize(w, h)
-      }
-      window.addEventListener('resize', onResize)
-
-      const cleanup = () => {
-        window.removeEventListener('resize', onResize)
-      }
-      return cleanup
-    }
-
-    const cleanupPromise = init()
-
-    return () => {
-      destroyed = true
-      cancelAnimationFrame(frameId)
-      cleanupPromise.then(fn => fn?.())
-      if (renderer) {
-        renderer.dispose()
-        if (mountRef.current?.contains(renderer.domElement)) {
-          mountRef.current.removeChild(renderer.domElement)
-        }
-      }
-    }
-  }, [url])
-
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-4">
+      {/* Header bar */}
       <div className="flex items-center justify-between bg-slate-800 rounded-lg px-4 py-2">
-        <div className="flex items-center gap-2 text-slate-400 text-xs">
-          <Layers className="w-4 h-4" />
-          <span>BIM IFC Viewer {elementCount > 0 ? `• ${elementCount} אלמנטים` : ''}</span>
+        <div className="flex items-center gap-2 text-slate-300 text-xs">
+          <Layers className="w-4 h-4 text-blue-400" />
+          <span>BIM / IFC קובץ</span>
         </div>
-        <a href={url} download={fileName} className="p-1.5 rounded hover:bg-slate-700 transition text-white">
-          <Download className="w-4 h-4" />
+        <a
+          href={url}
+          download={fileName}
+          className="flex items-center gap-1.5 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition"
+        >
+          <Download className="w-3.5 h-3.5" />
+          הורד
         </a>
       </div>
-      <div className="relative rounded-lg overflow-hidden" style={{ height: 480 }}>
-        {loading && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-800 z-10 rounded-lg gap-2">
-            <div className="w-8 h-8 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-            <p className="text-slate-400 text-sm">טוען מודל BIM...</p>
+
+      {/* Main card */}
+      <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-blue-50 p-8">
+        <div className="flex flex-col items-center text-center gap-5">
+          {/* Icon */}
+          <div className="w-20 h-20 rounded-2xl bg-blue-600 flex items-center justify-center shadow-lg">
+            <Box className="w-10 h-10 text-white" />
           </div>
-        )}
-        {error && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-800 z-10 rounded-lg gap-4">
-            <Layers className="w-12 h-12 text-slate-500" />
-            <div className="text-center">
-              <p className="text-slate-300 font-medium">קובץ IFC — BIM</p>
-              <p className="text-slate-500 text-sm mt-1">לצפייה מלאה פתח עם Revit, ArchiCAD או Navisworks</p>
-            </div>
-            <a href={url} download={fileName} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 flex items-center gap-2">
-              <Download className="w-4 h-4" />
-              הורד קובץ IFC
-            </a>
+
+          <div>
+            <h3 className="text-lg font-bold text-slate-800">{fileName ?? 'קובץ IFC'}</h3>
+            <p className="text-sm text-slate-500 mt-1">
+              Industry Foundation Classes — פורמט BIM אוניברסלי
+            </p>
           </div>
-        )}
-        <div ref={mountRef} className="w-full h-full" />
+
+          {/* Download CTA */}
+          <a
+            href={url}
+            download={fileName}
+            className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition shadow-sm text-sm"
+          >
+            <Download className="w-4 h-4" />
+            הורד קובץ IFC לצפייה בתוכנה
+          </a>
+        </div>
+
+        {/* Info box */}
+        <div className="mt-6 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
+          <Info className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+          <p className="text-xs text-amber-700">
+            קבצי IFC דורשים תוכנת BIM לצפייה מלאה. הורד את הקובץ ופתח באחת מהתוכנות למטה.
+          </p>
+        </div>
+
+        {/* Compatible apps */}
+        <div className="mt-5">
+          <p className="text-xs font-semibold text-slate-500 mb-3 text-center">תואם לתוכנות:</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {BIM_APPS.map(app => (
+              <div
+                key={app.name}
+                className="flex flex-col items-center gap-1.5 p-3 bg-white rounded-xl border border-slate-200 shadow-sm"
+              >
+                <span className="text-2xl">{app.icon}</span>
+                <span className="text-xs font-medium text-slate-700 text-center leading-tight">{app.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Tip */}
+        <p className="text-center text-xs text-slate-400 mt-4">
+          💡 ייצא מ-Revit/ArchiCAD לפורמט <strong>.glb</strong> לצפייה תלת-ממדית ישירה בדפדפן
+        </p>
       </div>
     </div>
   )
