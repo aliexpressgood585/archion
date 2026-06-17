@@ -96,6 +96,13 @@ function ProjectsPage() {
     return matchSearch && matchStatus
   })
 
+  // Reload clients every time the modal opens so newly created clients appear
+  useEffect(() => {
+    if (!showModal || !orgId) return
+    supabase.from('clients').select('*').eq('organization_id', orgId).order('name')
+      .then(({ data }) => { if (data) setClients(data) })
+  }, [showModal, orgId])
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!orgId || !profile) return
@@ -105,7 +112,7 @@ function ProjectsPage() {
     }
     setSaving(true)
     setFormError(null)
-    const { error } = await supabase.from('projects').insert({
+    const { data: inserted, error } = await supabase.from('projects').insert({
       organization_id: orgId,
       name: form.name.trim(),
       client_id: form.client_id || null,
@@ -115,15 +122,16 @@ function ProjectsPage() {
       end_date: form.end_date || null,
       description: form.description || null,
       created_by: profile.id,
-    })
+    }).select('*, clients(name)').single()
     setSaving(false)
     if (error) {
       setFormError('שמירה נכשלה. נסה שוב.')
       return
     }
+    // Immediately prepend to list — no refetch needed
+    if (inserted) setProjects(prev => [inserted as unknown as ProjectWithClient, ...prev])
     setShowModal(false)
     setForm(INITIAL_FORM)
-    fetchProjects()
   }
 
   return (

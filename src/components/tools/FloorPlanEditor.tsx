@@ -422,8 +422,28 @@ export function FloorPlanEditor() {
   function exportDxf() {
     const S = SCALE
     const T = WALL_T / 2 / S
+
+    // Only define layers that actually have content
+    const hasWalls  = elements.some(e => e.kind === 'wall')
+    const hasRooms  = elements.some(e => e.kind === 'room')
+    const hasDoors  = elements.some(e => e.kind === 'door')
+    const hasWins   = elements.some(e => e.kind === 'window')
+    const hasTexts  = elements.some(e => e.kind === 'text')
+    const layerNames = [
+      ...(hasWalls  ? ['WALLS']       : []),
+      ...(hasRooms  ? ['ROOMS','LABELS'] : []),
+      ...(hasDoors  ? ['DOORS']       : []),
+      ...(hasWins   ? ['WINDOWS']     : []),
+      ...(hasTexts  ? ['ANNOTATIONS'] : []),
+    ]
+    const layerTable = layerNames.map(n =>
+      `0\nLAYER\n2\n${n}\n70\n0\n62\n7\n6\nCONTINUOUS`
+    ).join('\n')
+    const tablesSection = `0\nSECTION\n2\nTABLES\n0\nTABLE\n2\nLAYER\n70\n${layerNames.length}\n${layerTable}\n0\nENDTAB\n0\nENDSEC`
+
     const parts: string[] = [
       '0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1009\n0\nENDSEC',
+      tablesSection,
       '0\nSECTION\n2\nENTITIES',
     ]
     function line(layer: string, x1: number, y1: number, x2: number, y2: number) {

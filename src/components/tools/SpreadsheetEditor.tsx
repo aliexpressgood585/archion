@@ -243,15 +243,23 @@ export function SpreadsheetEditor() {
 
   function exportCsv() {
     const rows: string[] = []
-    for (let r = 0; r < numRows; r++) {
+    // Find last non-empty row to avoid exporting trailing blank rows
+    let lastRow = 0
+    for (let r = 0; r < numRows; r++)
+      for (let c = 0; c < numCols; c++)
+        if (displayValue(cells, r, c)) lastRow = r
+    for (let r = 0; r <= lastRow; r++) {
       const cols: string[] = []
       for (let c = 0; c < numCols; c++) {
         const val = displayValue(cells, r, c)
-        cols.push(val.includes(',') ? `"${val}"` : val)
+        // Wrap in quotes if contains comma, quote, or newline
+        cols.push(val.includes(',') || val.includes('"') || val.includes('\n')
+          ? `"${val.replace(/"/g, '""')}"` : val)
       }
       rows.push(cols.join(','))
     }
-    const blob = new Blob([rows.join('\n')], { type: 'text/csv' })
+    // UTF-8 BOM (﻿) ensures Hebrew text opens correctly in Excel
+    const blob = new Blob(['﻿' + rows.join('\n')], { type: 'text/csv;charset=utf-8' })
     const a = document.createElement('a')
     a.download = 'spreadsheet.csv'
     a.href = URL.createObjectURL(blob)
