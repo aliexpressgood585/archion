@@ -3,6 +3,7 @@ import { lazy, Suspense, useState, useRef } from 'react'
 import { ArrowRight, Upload, Trash2, X, FolderOpen, Eye } from 'lucide-react'
 import { FileViewer } from '@/components/viewers/FileViewer'
 
+const BIMStudio       = lazy(() => import('@/components/tools/BIMStudio').then(m => ({ default: m.BIMStudio })))
 const FloorPlanEditor = lazy(() => import('@/components/tools/FloorPlanEditor').then(m => ({ default: m.FloorPlanEditor })))
 const GanttEditor     = lazy(() => import('@/components/tools/GanttEditor').then(m => ({ default: m.GanttEditor })))
 const Viewer3D        = lazy(() => import('@/components/tools/Viewer3D').then(m => ({ default: m.Viewer3D })))
@@ -156,7 +157,7 @@ function ToolDetailPage() {
 
   function renderEmbeddedTool() {
     switch (tool.type) {
-      case 'floor-plan':   return <FloorPlanEditor />
+      case 'floor-plan':   return <BIMStudio />
       case 'gantt':        return <GanttEditor />
       case '3d-viewer':    return <Viewer3D />
       case 'render-3d':    return <Viewer3D />
