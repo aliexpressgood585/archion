@@ -1,11 +1,21 @@
-import { useState } from 'react'
+import { useToolState } from '@/hooks/useToolState'
 
-export default function DensityCalculator() {
-  const [plotArea, setPlotArea] = useState('')
-  const [far, setFar] = useState('')           // מקדם ניצול
-  const [coverage, setCoverage] = useState('') // אחוזי כיסוי
-  const [floors, setFloors] = useState('')
-  const [avgUnit, setAvgUnit] = useState('100')
+interface State {
+  plotArea: string
+  far: string
+  coverage: string
+  floors: string
+  avgUnit: string
+}
+
+const DEFAULT: State = { plotArea: '', far: '', coverage: '', floors: '', avgUnit: '100' }
+
+export default function DensityCalculator({ projectId }: { projectId: string | null }) {
+  const { state, setState, loading, saving } = useToolState('density-calculator', projectId, DEFAULT)
+  const { plotArea, far, coverage, floors, avgUnit } = state
+
+  const set = (field: keyof State) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setState(s => ({ ...s, [field]: e.target.value }))
 
   const plot = parseFloat(plotArea) || 0
   const farVal = parseFloat(far) || 0
@@ -28,61 +38,36 @@ export default function DensityCalculator() {
     </div>
   )
 
+  if (loading) return <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>
+
   return (
     <div className="space-y-6" dir="rtl">
+      {saving && <div className="text-xs text-slate-400 text-left">שומר...</div>}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">שטח מגרש (מ"ר)</label>
-          <input
-            type="number"
-            value={plotArea}
-            onChange={e => setPlotArea(e.target.value)}
-            placeholder="למשל: 600"
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+          <input type="number" value={plotArea} onChange={set('plotArea')} placeholder="למשל: 600"
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">מקדם ניצול (FAR)</label>
-          <input
-            type="number"
-            step="0.1"
-            value={far}
-            onChange={e => setFar(e.target.value)}
-            placeholder="למשל: 2.5"
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+          <input type="number" step="0.1" value={far} onChange={set('far')} placeholder="למשל: 2.5"
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">אחוזי כיסוי (%)</label>
-          <input
-            type="number"
-            min="0"
-            max="100"
-            value={coverage}
-            onChange={e => setCoverage(e.target.value)}
-            placeholder="למשל: 40"
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+          <input type="number" min="0" max="100" value={coverage} onChange={set('coverage')} placeholder="למשל: 40"
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">מספר קומות מותר</label>
-          <input
-            type="number"
-            value={floors}
-            onChange={e => setFloors(e.target.value)}
-            placeholder="למשל: 6"
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+          <input type="number" value={floors} onChange={set('floors')} placeholder="למשל: 6"
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">שטח ממוצע ליחידה (מ"ר)</label>
-          <input
-            type="number"
-            value={avgUnit}
-            onChange={e => setAvgUnit(e.target.value)}
-            placeholder="100"
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+          <input type="number" value={avgUnit} onChange={set('avgUnit')} placeholder="100"
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
       </div>
 

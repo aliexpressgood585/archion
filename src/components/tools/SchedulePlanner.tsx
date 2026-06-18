@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useToolState } from '@/hooks/useToolState'
 import { Plus, Trash2 } from 'lucide-react'
 
 interface Phase {
@@ -7,6 +7,11 @@ interface Phase {
   durationWeeks: string
   depends: string
   notes: string
+}
+
+interface State {
+  startDate: string
+  phases: Phase[]
 }
 
 const DEFAULT_PHASES: Omit<Phase, 'id'>[] = [
@@ -31,21 +36,26 @@ function fmtDate(d: Date) {
   return d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-export default function SchedulePlanner() {
-  const [startDate, setStartDate] = useState(() => {
-    const d = new Date()
-    return d.toISOString().slice(0, 10)
-  })
-  const [phases, setPhases] = useState<Phase[]>(
-    DEFAULT_PHASES.map(p => ({ ...p, id: crypto.randomUUID() }))
-  )
+const DEFAULT: State = {
+  startDate: new Date().toISOString().slice(0, 10),
+  phases: DEFAULT_PHASES.map(p => ({ ...p, id: crypto.randomUUID() })),
+}
 
-  const add = () => setPhases(ps => [...ps, { id: crypto.randomUUID(), name: '', durationWeeks: '4', depends: '', notes: '' }])
-  const remove = (id: string) => setPhases(ps => ps.filter(x => x.id !== id))
+const BAR_COLORS = [
+  'bg-blue-400', 'bg-indigo-400', 'bg-violet-400', 'bg-purple-400',
+  'bg-pink-400', 'bg-rose-400', 'bg-orange-400', 'bg-amber-400', 'bg-emerald-400'
+]
+
+export default function SchedulePlanner({ projectId }: { projectId: string | null }) {
+  const { state, setState, loading, saving } = useToolState('schedule-planner', projectId, DEFAULT)
+  const { startDate, phases } = state
+
+  const add = () => setState(s => ({ ...s, phases: [...s.phases, { id: crypto.randomUUID(), name: '', durationWeeks: '4', depends: '', notes: '' }] }))
+  const remove = (id: string) => setState(s => ({ ...s, phases: s.phases.filter(x => x.id !== id) }))
   const update = (id: string, field: keyof Phase, value: string) =>
-    setPhases(ps => ps.map(p => p.id === id ? { ...p, [field]: value } : p))
+    setState(s => ({ ...s, phases: s.phases.map(p => p.id === id ? { ...p, [field]: value } : p) }))
 
-  const start = new Date(startDate)
+  const start = new Date(startDate + 'T12:00:00')
   const totalWeeks = phases.reduce((s, p) => s + (parseFloat(p.durationWeeks) || 0), 0)
 
   type PhaseWithDates = Phase & { phaseStart: Date; phaseEnd: Date }
@@ -57,17 +67,15 @@ export default function SchedulePlanner() {
   }, [])
   const projectEnd = phasesWithDates.length > 0 ? phasesWithDates[phasesWithDates.length - 1].phaseEnd : start
 
-  const BAR_COLORS = [
-    'bg-blue-400', 'bg-indigo-400', 'bg-violet-400', 'bg-purple-400',
-    'bg-pink-400', 'bg-rose-400', 'bg-orange-400', 'bg-amber-400', 'bg-emerald-400'
-  ]
+  if (loading) return <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>
 
   return (
     <div className="space-y-5" dir="rtl">
+      {saving && <div className="text-xs text-slate-400 text-left">שומר...</div>}
       <div className="flex items-center gap-4 flex-wrap">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">תאריך התחלה</label>
-          <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+          <input type="date" value={startDate} onChange={e => setState(s => ({ ...s, startDate: e.target.value }))}
             className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
         <div className="text-sm text-slate-500">
@@ -121,7 +129,6 @@ export default function SchedulePlanner() {
         <Plus className="w-4 h-4" /> הוסף שלב
       </button>
 
-      {/* Mini Gantt */}
       <div className="bg-white rounded-xl border border-slate-200 p-4">
         <div className="text-sm font-medium text-slate-700 mb-3">גאנט מוקצר</div>
         <div className="space-y-1.5">
@@ -135,10 +142,8 @@ export default function SchedulePlanner() {
               <div key={p.id} className="flex items-center gap-2">
                 <div className="w-32 text-xs text-slate-500 truncate text-right shrink-0">{p.name || `שלב ${i + 1}`}</div>
                 <div className="flex-1 h-5 bg-slate-100 rounded relative overflow-hidden">
-                  <div
-                    className={`absolute h-full rounded ${BAR_COLORS[i % BAR_COLORS.length]} opacity-80`}
-                    style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
-                  />
+                  <div className={`absolute h-full rounded ${BAR_COLORS[i % BAR_COLORS.length]} opacity-80`}
+                    style={{ left: `${leftPct}%`, width: `${widthPct}%` }} />
                 </div>
                 <div className="text-xs text-slate-400 w-16 text-left shrink-0">{p.durationWeeks}שב'</div>
               </div>

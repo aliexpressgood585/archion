@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Copy, Check } from 'lucide-react'
+import { useToolState } from '@/hooks/useToolState'
 
 interface ServiceItem {
   id: string
@@ -8,47 +9,63 @@ interface ServiceItem {
   fee: string
 }
 
-const DEFAULT_SERVICES: Omit<ServiceItem, 'id'>[] = [
-  { label: 'בחינה מוקדמת ואבחון צרכים', included: true,  fee: '' },
-  { label: 'תכנון מוקדם (קונספט)', included: true,  fee: '' },
-  { label: 'פיתוח תכנון (DD)', included: true,  fee: '' },
-  { label: 'הגשה לועדת תכנון ובנייה', included: true,  fee: '' },
-  { label: 'תכנון לביצוע (CD)', included: true,  fee: '' },
-  { label: 'מסמכי מכרז', included: false, fee: '' },
-  { label: 'פיקוח עליון', included: false, fee: '' },
-  { label: 'ניהול פרויקט', included: false, fee: '' },
-]
+interface State {
+  firmName: string
+  clientName: string
+  projectDesc: string
+  projectAddress: string
+  proposalDate: string
+  validDays: string
+  services: ServiceItem[]
+  paymentTerms: string
+  vatNote: string
+  extraNotes: string
+}
 
-export default function ProposalBuilder() {
-  const [firmName, setFirmName] = useState('')
-  const [clientName, setClientName] = useState('')
-  const [projectDesc, setProjectDesc] = useState('')
-  const [projectAddress, setProjectAddress] = useState('')
-  const [proposalDate, setProposalDate] = useState(() => new Date().toLocaleDateString('he-IL'))
-  const [validDays, setValidDays] = useState('30')
-  const [services, setServices] = useState<ServiceItem[]>(
-    DEFAULT_SERVICES.map(s => ({ ...s, id: crypto.randomUUID() }))
-  )
-  const [paymentTerms, setPaymentTerms] = useState('30 ימים מקבלת חשבונית')
-  const [vatNote, setVatNote] = useState('כל הסכומים אינם כוללים מע"מ 17%')
-  const [extraNotes, setExtraaNotes] = useState('')
+const DEFAULT: State = {
+  firmName: '',
+  clientName: '',
+  projectDesc: '',
+  projectAddress: '',
+  proposalDate: new Date().toLocaleDateString('he-IL'),
+  validDays: '30',
+  services: [
+    { id: crypto.randomUUID(), label: 'בחינה מוקדמת ואבחון צרכים',      included: true,  fee: '' },
+    { id: crypto.randomUUID(), label: 'תכנון מוקדם (קונספט)',             included: true,  fee: '' },
+    { id: crypto.randomUUID(), label: 'פיתוח תכנון (DD)',                 included: true,  fee: '' },
+    { id: crypto.randomUUID(), label: 'הגשה לועדת תכנון ובנייה',         included: true,  fee: '' },
+    { id: crypto.randomUUID(), label: 'תכנון לביצוע (CD)',                included: true,  fee: '' },
+    { id: crypto.randomUUID(), label: 'מסמכי מכרז',                       included: false, fee: '' },
+    { id: crypto.randomUUID(), label: 'פיקוח עליון',                      included: false, fee: '' },
+    { id: crypto.randomUUID(), label: 'ניהול פרויקט',                     included: false, fee: '' },
+  ],
+  paymentTerms: '30 ימים מקבלת חשבונית',
+  vatNote: 'כל הסכומים אינם כוללים מע"מ 17%',
+  extraNotes: '',
+}
+
+export default function ProposalBuilder({ projectId }: { projectId: string | null }) {
+  const { state, setState, loading, saving } = useToolState('proposal-builder', projectId, DEFAULT)
+  const { firmName, clientName, projectDesc, projectAddress, proposalDate, validDays, services, paymentTerms, vatNote, extraNotes } = state
   const [copied, setCopied] = useState(false)
 
+  const setField = (field: keyof State, value: string) =>
+    setState(s => ({ ...s, [field]: value }))
+
   const toggleService = (id: string) =>
-    setServices(ss => ss.map(s => s.id === id ? { ...s, included: !s.included } : s))
+    setState(s => ({ ...s, services: s.services.map(svc => svc.id === id ? { ...svc, included: !svc.included } : svc) }))
   const setFee = (id: string, fee: string) =>
-    setServices(ss => ss.map(s => s.id === id ? { ...s, fee } : s))
+    setState(s => ({ ...s, services: s.services.map(svc => svc.id === id ? { ...svc, fee } : svc) }))
 
   const includedServices = services.filter(s => s.included)
   const totalFee = includedServices.reduce((sum, s) => sum + (parseFloat(s.fee) || 0), 0)
 
   const generateProposal = () => {
-    const today = proposalDate
     const lines = [
       `הצעת שכר טרחה`,
       `═══════════════`,
       '',
-      `תאריך: ${today}`,
+      `תאריך: ${proposalDate}`,
       firmName ? `משרד: ${firmName}` : '',
       `ללקוח: ${clientName || '——'}`,
       '',
@@ -86,20 +103,23 @@ export default function ProposalBuilder() {
     setTimeout(() => setCopied(false), 2500)
   }
 
+  if (loading) return <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>
+
   return (
     <div className="space-y-6" dir="rtl">
+      {saving && <div className="text-xs text-slate-400 text-left">שומר...</div>}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {[
-          { label: 'שם המשרד', val: firmName, set: setFirmName, ph: 'משרד אדריכלות ...' },
-          { label: 'שם הלקוח', val: clientName, set: setClientName, ph: 'שם הלקוח ...' },
-          { label: 'תיאור הפרויקט', val: projectDesc, set: setProjectDesc, ph: 'דירת 4 חדרים, בנייה חדשה' },
-          { label: 'כתובת הפרויקט', val: projectAddress, set: setProjectAddress, ph: 'רחוב ...' },
-          { label: 'תאריך ההצעה', val: proposalDate, set: setProposalDate, ph: '' },
-          { label: 'תוקף ההצעה (ימים)', val: validDays, set: setValidDays, ph: '30' },
-        ].map(({ label, val, set, ph }) => (
-          <div key={label}>
+          { label: 'שם המשרד',          field: 'firmName',        ph: 'משרד אדריכלות ...', val: firmName },
+          { label: 'שם הלקוח',          field: 'clientName',      ph: 'שם הלקוח ...',      val: clientName },
+          { label: 'תיאור הפרויקט',     field: 'projectDesc',     ph: 'דירת 4 חדרים, בנייה חדשה', val: projectDesc },
+          { label: 'כתובת הפרויקט',     field: 'projectAddress',  ph: 'רחוב ...',           val: projectAddress },
+          { label: 'תאריך ההצעה',       field: 'proposalDate',    ph: '',                   val: proposalDate },
+          { label: 'תוקף ההצעה (ימים)', field: 'validDays',       ph: '30',                 val: validDays },
+        ].map(({ label, field, ph, val }) => (
+          <div key={field}>
             <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
-            <input value={val} onChange={e => set(e.target.value)} placeholder={ph}
+            <input value={val} onChange={e => setField(field as keyof State, e.target.value)} placeholder={ph}
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
         ))}
@@ -141,19 +161,19 @@ export default function ProposalBuilder() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">תנאי תשלום</label>
-          <input value={paymentTerms} onChange={e => setPaymentTerms(e.target.value)}
+          <input value={paymentTerms} onChange={e => setField('paymentTerms', e.target.value)}
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">הערת מע"מ</label>
-          <input value={vatNote} onChange={e => setVatNote(e.target.value)}
+          <input value={vatNote} onChange={e => setField('vatNote', e.target.value)}
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
       </div>
 
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">הערות נוספות</label>
-        <textarea value={extraNotes} onChange={e => setExtraaNotes(e.target.value)} rows={3}
+        <textarea value={extraNotes} onChange={e => setField('extraNotes', e.target.value)} rows={3}
           placeholder="תנאים מיוחדים, הגבלות, הבהרות..."
           className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" />
       </div>

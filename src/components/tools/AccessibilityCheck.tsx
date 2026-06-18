@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useToolState } from '@/hooks/useToolState'
 
 type ItemResult = 'compliant' | 'non_compliant' | 'na' | 'pending'
 
@@ -16,6 +16,11 @@ interface ASection {
   items: ACheck[]
 }
 
+interface State {
+  buildingType: string
+  sections: ASection[]
+}
+
 const RESULT_META: Record<ItemResult, { label: string; color: string }> = {
   compliant:     { label: 'עומד',       color: 'bg-green-100 text-green-700 border-green-200' },
   non_compliant: { label: 'אינו עומד',  color: 'bg-red-100 text-red-700 border-red-200' },
@@ -25,88 +30,91 @@ const RESULT_META: Record<ItemResult, { label: string; color: string }> = {
 
 const ORDER: ItemResult[] = ['pending', 'compliant', 'non_compliant', 'na']
 
-function mk(label: string, detail?: string): ACheck {
-  return { id: crypto.randomUUID(), label, detail, result: 'pending', notes: '' }
+function mk(id: string, label: string, detail?: string): ACheck {
+  return { id, label, detail, result: 'pending', notes: '' }
 }
 
-const INITIAL: ASection[] = [
+const INITIAL_SECTIONS: ASection[] = [
   {
     id: 'entrance', title: 'כניסה ומסדרון כניסה',
     items: [
-      mk('שביל גישה נגיש מחניה לכניסה', "רוחב מינ. 1.50מ'"),
-      mk('שיפוע שביל גישה', 'מקס. 1:14'),
-      mk('פרק כניסה ראשי נגיש', 'ללא מדרגות / עם רמפה'),
-      mk('דלת כניסה — רוחב מינ. 90 ס"מ'),
-      mk('ידית דלת — גובה 80-110 ס"מ'),
-      mk('תאורה מספקת בכניסה', 'מינ. 200 לוקס'),
+      mk('e1', 'שביל גישה נגיש מחניה לכניסה', "רוחב מינ. 1.50מ'"),
+      mk('e2', 'שיפוע שביל גישה', 'מקס. 1:14'),
+      mk('e3', 'פרק כניסה ראשי נגיש', 'ללא מדרגות / עם רמפה'),
+      mk('e4', 'דלת כניסה — רוחב מינ. 90 ס"מ'),
+      mk('e5', 'ידית דלת — גובה 80-110 ס"מ'),
+      mk('e6', 'תאורה מספקת בכניסה', 'מינ. 200 לוקס'),
     ],
   },
   {
     id: 'corridors', title: 'מסדרונות ומעברים',
     items: [
-      mk('רוחב מסדרון', "מינ. 1.20מ' פנוי"),
-      mk('גובה פנוי', "מינ. 2.10מ'"),
-      mk('פינות — תשריט פינה לכיסא גלגלים'),
-      mk('סוגי רצפה — מפלס אחיד, לא חלקה'),
-      mk('ניגוד צבעים בין רצפה לקיר'),
+      mk('c1', 'רוחב מסדרון', "מינ. 1.20מ' פנוי"),
+      mk('c2', 'גובה פנוי', "מינ. 2.10מ'"),
+      mk('c3', 'פינות — תשריט פינה לכיסא גלגלים'),
+      mk('c4', 'סוגי רצפה — מפלס אחיד, לא חלקה'),
+      mk('c5', 'ניגוד צבעים בין רצפה לקיר'),
     ],
   },
   {
     id: 'elevation', title: 'מעליות ועליות',
     items: [
-      mk('מעלית נגישה — מידות תא', 'מינ. 110×140 ס"מ'),
-      mk('לוח כפתורי מעלית — גובה', '0.90-1.10מ'),
-      mk('כפתורים עם ברייל ותאורה'),
-      mk('הודעה קולית מעלית'),
-      mk('רמפה (אם אין מעלית) — שיפוע', 'מקס. 1:12'),
-      mk('ידיות רמפה — גובה', '0.85-1.00מ'),
+      mk('el1', 'מעלית נגישה — מידות תא', 'מינ. 110×140 ס"מ'),
+      mk('el2', 'לוח כפתורי מעלית — גובה', '0.90-1.10מ'),
+      mk('el3', 'כפתורים עם ברייל ותאורה'),
+      mk('el4', 'הודעה קולית מעלית'),
+      mk('el5', 'רמפה (אם אין מעלית) — שיפוע', 'מקס. 1:12'),
+      mk('el6', 'ידיות רמפה — גובה', '0.85-1.00מ'),
     ],
   },
   {
     id: 'toilets', title: 'שירותים נגישים',
     items: [
-      mk('שירותי נכים — מידות', 'מינ. 165×200 ס"מ'),
-      mk('מקום לכיסא גלגלים ליד אסלה', 'מינ. 90 ס"מ'),
-      mk('ידיות תמיכה ליד אסלה'),
-      mk('כיור — גובה', 'מקס. 86 ס"מ מרצפה'),
-      mk('ברז ידנית / מגע'),
-      mk('מראה — מגיעה לגובה 100 ס"מ'),
-      mk('דלת שירותים — נפתחת החוצה'),
+      mk('t1', 'שירותי נכים — מידות', 'מינ. 165×200 ס"מ'),
+      mk('t2', 'מקום לכיסא גלגלים ליד אסלה', 'מינ. 90 ס"מ'),
+      mk('t3', 'ידיות תמיכה ליד אסלה'),
+      mk('t4', 'כיור — גובה', 'מקס. 86 ס"מ מרצפה'),
+      mk('t5', 'ברז ידנית / מגע'),
+      mk('t6', 'מראה — מגיעה לגובה 100 ס"מ'),
+      mk('t7', 'דלת שירותים — נפתחת החוצה'),
     ],
   },
   {
     id: 'parking', title: 'חנייה נגישה',
     items: [
-      mk('מקום חנייה נגיש', 'רוחב מינ. 3.40מ'),
-      mk('תלאי / שילוט לחנייה נגישה'),
-      mk('מרחק מחנייה לכניסה', 'מינ. אפשרי'),
+      mk('p1', 'מקום חנייה נגיש', 'רוחב מינ. 3.40מ'),
+      mk('p2', 'תלאי / שילוט לחנייה נגישה'),
+      mk('p3', 'מרחק מחנייה לכניסה', 'מינ. אפשרי'),
     ],
   },
   {
     id: 'signage', title: 'שילוט ומידע',
     items: [
-      mk('שילוט נגישות בכניסה'),
-      mk('לוחות מידע — גובה', '1.40-1.60מ'),
-      mk('שילוט — ניגוד צבעים מספק'),
-      mk('תאורת חירום'),
+      mk('sg1', 'שילוט נגישות בכניסה'),
+      mk('sg2', 'לוחות מידע — גובה', '1.40-1.60מ'),
+      mk('sg3', 'שילוט — ניגוד צבעים מספק'),
+      mk('sg4', 'תאורת חירום'),
     ],
   },
 ]
 
-export default function AccessibilityCheck() {
-  const [buildingType, setBuildingType] = useState('public')
-  const [sections, setSections] = useState<ASection[]>(INITIAL)
+const DEFAULT: State = { buildingType: 'public', sections: INITIAL_SECTIONS }
+
+export default function AccessibilityCheck({ projectId }: { projectId: string | null }) {
+  const { state, setState, loading, saving } = useToolState('accessibility-check', projectId, DEFAULT)
+  const { buildingType, sections } = state
 
   const cycleResult = (sId: string, iId: string, cur: ItemResult) => {
     const next = ORDER[(ORDER.indexOf(cur) + 1) % ORDER.length]
-    setSections(ss => ss.map(s => s.id === sId
-      ? { ...s, items: s.items.map(it => it.id === iId ? { ...it, result: next } : it) }
-      : s))
+    setState(s => ({ ...s, sections: s.sections.map(sec => sec.id === sId
+      ? { ...sec, items: sec.items.map(it => it.id === iId ? { ...it, result: next } : it) }
+      : sec) }))
   }
+
   const setNotes = (sId: string, iId: string, notes: string) =>
-    setSections(ss => ss.map(s => s.id === sId
-      ? { ...s, items: s.items.map(it => it.id === iId ? { ...it, notes } : it) }
-      : s))
+    setState(s => ({ ...s, sections: s.sections.map(sec => sec.id === sId
+      ? { ...sec, items: sec.items.map(it => it.id === iId ? { ...it, notes } : it) }
+      : sec) }))
 
   const allItems = sections.flatMap(s => s.items).filter(i => i.result !== 'na')
   const compliant = allItems.filter(i => i.result === 'compliant').length
@@ -114,12 +122,15 @@ export default function AccessibilityCheck() {
   const checked = compliant + nonCompliant
   const score = checked > 0 ? (compliant / checked) * 100 : 0
 
+  if (loading) return <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>
+
   return (
     <div className="space-y-5" dir="rtl">
+      {saving && <div className="text-xs text-slate-400 text-left">שומר...</div>}
       <div className="flex items-center gap-4 flex-wrap">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">סוג מבנה</label>
-          <select value={buildingType} onChange={e => setBuildingType(e.target.value)}
+          <select value={buildingType} onChange={e => setState(s => ({ ...s, buildingType: e.target.value }))}
             className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option value="public">מבנה ציבורי</option>
             <option value="residential">מגורים (מעל 4 יח"ד)</option>
@@ -129,7 +140,6 @@ export default function AccessibilityCheck() {
         <div className="text-xs text-slate-500">תקן ישראלי 1918 — נגישות לבנייה ולסביבה</div>
       </div>
 
-      {/* Score */}
       <div className="bg-slate-50 rounded-xl border border-slate-200 p-4">
         <div className="flex justify-between items-center mb-2">
           <span className="text-sm font-medium text-slate-700">ציון עמידה בדרישות</span>

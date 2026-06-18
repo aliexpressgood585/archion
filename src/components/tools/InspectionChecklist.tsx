@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useToolState } from '@/hooks/useToolState'
 
 type ItemResult = 'pass' | 'fail' | 'na' | 'pending'
 
@@ -15,11 +15,18 @@ interface Section {
   items: CheckItem[]
 }
 
+interface State {
+  projectName: string
+  inspDate: string
+  inspector: string
+  sections: Section[]
+}
+
 const RESULT_META: Record<ItemResult, { label: string; color: string }> = {
-  pass:    { label: 'תקין',    color: 'bg-green-100 text-green-700 border-green-200' },
-  fail:    { label: 'ליקוי',   color: 'bg-red-100 text-red-700 border-red-200' },
+  pass:    { label: 'תקין',        color: 'bg-green-100 text-green-700 border-green-200' },
+  fail:    { label: 'ליקוי',       color: 'bg-red-100 text-red-700 border-red-200' },
   na:      { label: 'לא רלוונטי', color: 'bg-slate-100 text-slate-500 border-slate-200' },
-  pending: { label: 'לא נבדק', color: 'bg-amber-50 text-amber-600 border-amber-200' },
+  pending: { label: 'לא נבדק',    color: 'bg-amber-50 text-amber-600 border-amber-200' },
 }
 
 const INITIAL_SECTIONS: Section[] = [
@@ -80,58 +87,67 @@ const INITIAL_SECTIONS: Section[] = [
   },
 ]
 
-export default function InspectionChecklist() {
-  const [projectName, setProjectName] = useState('')
-  const [inspDate, setInspDate] = useState(() => new Date().toISOString().slice(0, 10))
-  const [inspector, setInspector] = useState('')
-  const [sections, setSections] = useState<Section[]>(INITIAL_SECTIONS)
+const DEFAULT: State = {
+  projectName: '',
+  inspDate: new Date().toISOString().slice(0, 10),
+  inspector: '',
+  sections: INITIAL_SECTIONS,
+}
 
-  const setResult = (sectionId: string, itemId: string, result: ItemResult) =>
-    setSections(ss => ss.map(s => s.id === sectionId
-      ? { ...s, items: s.items.map(it => it.id === itemId ? { ...it, result } : it) }
-      : s))
+const ORDER: ItemResult[] = ['pending', 'pass', 'fail', 'na']
 
-  const setNotes = (sectionId: string, itemId: string, notes: string) =>
-    setSections(ss => ss.map(s => s.id === sectionId
-      ? { ...s, items: s.items.map(it => it.id === itemId ? { ...it, notes } : it) }
-      : s))
+export default function InspectionChecklist({ projectId }: { projectId: string | null }) {
+  const { state, setState, loading, saving } = useToolState('inspection-checklist', projectId, DEFAULT)
+  const { projectName, inspDate, inspector, sections } = state
+
+  const setField = (field: 'projectName' | 'inspDate' | 'inspector', value: string) =>
+    setState(s => ({ ...s, [field]: value }))
+
+  const cycleResult = (sId: string, iId: string, cur: ItemResult) => {
+    const next = ORDER[(ORDER.indexOf(cur) + 1) % ORDER.length]
+    setState(s => ({ ...s, sections: s.sections.map(sec => sec.id === sId
+      ? { ...sec, items: sec.items.map(it => it.id === iId ? { ...it, result: next } : it) }
+      : sec) }))
+  }
+
+  const setNotes = (sId: string, iId: string, notes: string) =>
+    setState(s => ({ ...s, sections: s.sections.map(sec => sec.id === sId
+      ? { ...sec, items: sec.items.map(it => it.id === iId ? { ...it, notes } : it) }
+      : sec) }))
 
   const allItems = sections.flatMap(s => s.items)
   const passed = allItems.filter(i => i.result === 'pass').length
   const failed = allItems.filter(i => i.result === 'fail').length
   const total = allItems.filter(i => i.result !== 'na').length
 
-  const ORDER: ItemResult[] = ['pending', 'pass', 'fail', 'na']
-  const cycleResult = (sId: string, iId: string, cur: ItemResult) => {
-    const next = ORDER[(ORDER.indexOf(cur) + 1) % ORDER.length]
-    setResult(sId, iId, next)
-  }
+  if (loading) return <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>
 
   return (
     <div className="space-y-5" dir="rtl">
+      {saving && <div className="text-xs text-slate-400 text-left">שומר...</div>}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">פרויקט</label>
-          <input value={projectName} onChange={e => setProjectName(e.target.value)} placeholder="שם הפרויקט"
+          <input value={projectName} onChange={e => setField('projectName', e.target.value)} placeholder="שם הפרויקט"
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">תאריך ביקור</label>
-          <input type="date" value={inspDate} onChange={e => setInspDate(e.target.value)}
+          <input type="date" value={inspDate} onChange={e => setField('inspDate', e.target.value)}
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">מפקח</label>
-          <input value={inspector} onChange={e => setInspector(e.target.value)} placeholder="שם המפקח"
+          <input value={inspector} onChange={e => setField('inspector', e.target.value)} placeholder="שם המפקח"
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: 'תקין', count: passed, color: 'bg-green-50 text-green-700 border-green-100' },
-          { label: 'ליקויים', count: failed, color: 'bg-red-50 text-red-700 border-red-100' },
-          { label: 'נבדקו', count: `${passed + failed}/${total}`, color: 'bg-blue-50 text-blue-700 border-blue-100' },
+          { label: 'תקין',   count: passed,              color: 'bg-green-50 text-green-700 border-green-100' },
+          { label: 'ליקויים', count: failed,             color: 'bg-red-50 text-red-700 border-red-100' },
+          { label: 'נבדקו',  count: `${passed + failed}/${total}`, color: 'bg-blue-50 text-blue-700 border-blue-100' },
         ].map(({ label, count, color }) => (
           <div key={label} className={`rounded-xl p-3 text-center border ${color}`}>
             <div className="text-2xl font-bold">{count}</div>

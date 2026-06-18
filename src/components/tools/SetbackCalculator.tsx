@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useToolState } from '@/hooks/useToolState'
 
 const ZONE_SETBACKS: Record<string, { label: string; front: number; rear: number; side: number; notes: string }> = {
   residential_a:   { label: 'מגורים א\'',   front: 5,  rear: 4,  side: 3,  notes: 'בנייה רוויה נמוכה' },
@@ -10,13 +10,27 @@ const ZONE_SETBACKS: Record<string, { label: string; front: number; rear: number
   agricultural:    { label: 'חקלאי',        front: 10, rear: 8,  side: 6,  notes: 'בנייה חקלאית' },
 }
 
-export default function SetbackCalculator() {
-  const [zone, setZone] = useState('residential_b')
-  const [plotWidth, setPlotWidth] = useState('')
-  const [plotDepth, setPlotDepth] = useState('')
-  const [customFront, setCustomFront] = useState('')
-  const [customRear, setCustomRear] = useState('')
-  const [customSide, setCustomSide] = useState('')
+interface State {
+  zone: string
+  plotWidth: string
+  plotDepth: string
+  customFront: string
+  customRear: string
+  customSide: string
+}
+
+const DEFAULT: State = {
+  zone: 'residential_b',
+  plotWidth: '',
+  plotDepth: '',
+  customFront: '',
+  customRear: '',
+  customSide: '',
+}
+
+export default function SetbackCalculator({ projectId }: { projectId: string | null }) {
+  const { state, setState, loading, saving } = useToolState('setback-calculator', projectId, DEFAULT)
+  const { zone, plotWidth, plotDepth, customFront, customRear, customSide } = state
 
   const zoneData = ZONE_SETBACKS[zone]
   const front = parseFloat(customFront) || zoneData.front
@@ -30,12 +44,15 @@ export default function SetbackCalculator() {
   const buildableDepth = Math.max(0, depth - front - rear)
   const buildableArea  = buildableWidth * buildableDepth
 
+  if (loading) return <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>
+
   return (
     <div className="space-y-6" dir="rtl">
+      {saving && <div className="text-xs text-slate-400 text-left">שומר...</div>}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">ייעוד / אזור</label>
-          <select value={zone} onChange={e => setZone(e.target.value)}
+          <select value={zone} onChange={e => setState(s => ({ ...s, zone: e.target.value }))}
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
             {Object.entries(ZONE_SETBACKS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
           </select>
@@ -44,12 +61,12 @@ export default function SetbackCalculator() {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">רוחב מגרש (מ')</label>
-            <input type="number" value={plotWidth} onChange={e => setPlotWidth(e.target.value)} placeholder="12"
+            <input type="number" value={plotWidth} onChange={e => setState(s => ({ ...s, plotWidth: e.target.value }))} placeholder="12"
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">עומק מגרש (מ')</label>
-            <input type="number" value={plotDepth} onChange={e => setPlotDepth(e.target.value)} placeholder="25"
+            <input type="number" value={plotDepth} onChange={e => setState(s => ({ ...s, plotDepth: e.target.value }))} placeholder="25"
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
         </div>
@@ -59,13 +76,13 @@ export default function SetbackCalculator() {
         <div className="text-sm font-medium text-slate-700 mb-2">קווי בנין (ניתן לדרוס את ברירת המחדל)</div>
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: 'קדמי (מ\')', val: customFront, set: setCustomFront, def: zoneData.front },
-            { label: 'אחורי (מ\')', val: customRear, set: setCustomRear, def: zoneData.rear },
-            { label: 'צד (מ\')', val: customSide, set: setCustomSide, def: zoneData.side },
-          ].map(({ label, val, set, def }) => (
+            { label: 'קדמי (מ\')', field: 'customFront' as keyof State, def: zoneData.front, val: customFront },
+            { label: 'אחורי (מ\')', field: 'customRear' as keyof State, def: zoneData.rear, val: customRear },
+            { label: 'צד (מ\')', field: 'customSide' as keyof State, def: zoneData.side, val: customSide },
+          ].map(({ label, field, def, val }) => (
             <div key={label}>
               <label className="block text-xs text-slate-600 mb-1">{label}</label>
-              <input type="number" step="0.5" value={val} onChange={e => set(e.target.value)} placeholder={String(def)}
+              <input type="number" step="0.5" value={val} onChange={e => setState(s => ({ ...s, [field]: e.target.value }))} placeholder={String(def)}
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
           ))}

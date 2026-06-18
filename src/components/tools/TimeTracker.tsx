@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
+import { useToolState } from '@/hooks/useToolState'
 
 interface TimeEntry {
   id: string
@@ -11,13 +12,18 @@ interface TimeEntry {
   rate: string
 }
 
+interface State {
+  entries: TimeEntry[]
+  budgetHours: string
+}
+
 const PHASES = [
   'בחינה מוקדמת', 'תכנון מוקדם', 'פיתוח תכנון', 'הגשה להיתר',
   'תכנון לביצוע', 'מכרז', 'פיקוח', 'ניהול', 'אחר',
 ]
 
-function newEntry(): TimeEntry {
-  return {
+const DEFAULT: State = {
+  entries: [{
     id: crypto.randomUUID(),
     date: new Date().toISOString().slice(0, 10),
     person: '',
@@ -25,18 +31,27 @@ function newEntry(): TimeEntry {
     task: '',
     hours: '',
     rate: '300',
-  }
+  }],
+  budgetHours: '',
 }
 
-export default function TimeTracker() {
-  const [entries, setEntries] = useState<TimeEntry[]>([newEntry()])
-  const [budgetHours, setBudgetHours] = useState('')
+export default function TimeTracker({ projectId }: { projectId: string | null }) {
+  const { state, setState, loading, saving } = useToolState('time-tracker', projectId, DEFAULT)
+  const { entries, budgetHours } = state
   const [filterPhase, setFilterPhase] = useState('הכל')
 
-  const add = () => setEntries(e => [...e, newEntry()])
-  const remove = (id: string) => setEntries(e => e.filter(x => x.id !== id))
+  const add = () => setState(s => ({ ...s, entries: [...s.entries, {
+    id: crypto.randomUUID(),
+    date: new Date().toISOString().slice(0, 10),
+    person: '',
+    phase: 'תכנון מוקדם',
+    task: '',
+    hours: '',
+    rate: '300',
+  }] }))
+  const remove = (id: string) => setState(s => ({ ...s, entries: s.entries.filter(x => x.id !== id) }))
   const update = (id: string, field: keyof TimeEntry, value: string) =>
-    setEntries(e => e.map(x => x.id === id ? { ...x, [field]: value } : x))
+    setState(s => ({ ...s, entries: s.entries.map(x => x.id === id ? { ...x, [field]: value } : x) }))
 
   const filtered = filterPhase === 'הכל' ? entries : entries.filter(e => e.phase === filterPhase)
 
@@ -54,12 +69,15 @@ export default function TimeTracker() {
   const fmtMoney = (n: number) => `₪${Math.round(n).toLocaleString('he-IL')}`
   const fmtHrs = (n: number) => `${n.toFixed(1)} ש'`
 
+  if (loading) return <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>
+
   return (
     <div className="space-y-5" dir="rtl">
+      {saving && <div className="text-xs text-slate-400 text-left">שומר...</div>}
       <div className="flex items-center gap-4 flex-wrap">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">תקציב שעות כולל</label>
-          <input type="number" value={budgetHours} onChange={e => setBudgetHours(e.target.value)} placeholder="למשל: 150"
+          <input type="number" value={budgetHours} onChange={e => setState(s => ({ ...s, budgetHours: e.target.value }))} placeholder="למשל: 150"
             className="w-36 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
         <div>
@@ -72,7 +90,6 @@ export default function TimeTracker() {
         </div>
       </div>
 
-      {/* Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-blue-50 rounded-xl p-3 text-center border border-blue-100">
           <div className="text-2xl font-bold text-blue-700">{fmtHrs(totalHours)}</div>
@@ -96,7 +113,6 @@ export default function TimeTracker() {
         </div>
       </div>
 
-      {/* Entries table */}
       <div className="overflow-x-auto rounded-xl border border-slate-200">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-slate-600">
@@ -162,7 +178,6 @@ export default function TimeTracker() {
         <Plus className="w-4 h-4" /> הוסף רשומה
       </button>
 
-      {/* By phase breakdown */}
       {Object.keys(byPhase).length > 0 && (
         <div className="bg-white rounded-xl border border-slate-200 p-4">
           <div className="text-sm font-medium text-slate-700 mb-3">פירוט לפי שלב</div>

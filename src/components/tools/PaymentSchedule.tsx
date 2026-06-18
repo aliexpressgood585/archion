@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useToolState } from '@/hooks/useToolState'
 import { Plus, Trash2 } from 'lucide-react'
 
 interface Milestone {
@@ -7,6 +7,11 @@ interface Milestone {
   pct: string
   dueDate: string
   paid: boolean
+}
+
+interface State {
+  contractValue: string
+  milestones: Milestone[]
 }
 
 const DEFAULT_MILESTONES: Omit<Milestone, 'id'>[] = [
@@ -19,16 +24,19 @@ const DEFAULT_MILESTONES: Omit<Milestone, 'id'>[] = [
   { name: 'מסירה סופית',         pct: '5',  dueDate: '', paid: false },
 ]
 
-export default function PaymentSchedule() {
-  const [contractValue, setContractValue] = useState('')
-  const [milestones, setMilestones] = useState<Milestone[]>(
-    DEFAULT_MILESTONES.map(m => ({ ...m, id: crypto.randomUUID() }))
-  )
+const DEFAULT: State = {
+  contractValue: '',
+  milestones: DEFAULT_MILESTONES.map(m => ({ ...m, id: crypto.randomUUID() })),
+}
 
-  const add = () => setMilestones(ms => [...ms, { id: crypto.randomUUID(), name: '', pct: '0', dueDate: '', paid: false }])
-  const remove = (id: string) => setMilestones(ms => ms.filter(x => x.id !== id))
+export default function PaymentSchedule({ projectId }: { projectId: string | null }) {
+  const { state, setState, loading, saving } = useToolState('payment-schedule', projectId, DEFAULT)
+  const { contractValue, milestones } = state
+
+  const add = () => setState(s => ({ ...s, milestones: [...s.milestones, { id: crypto.randomUUID(), name: '', pct: '0', dueDate: '', paid: false }] }))
+  const remove = (id: string) => setState(s => ({ ...s, milestones: s.milestones.filter(x => x.id !== id) }))
   const update = (id: string, field: keyof Milestone, value: string | boolean) =>
-    setMilestones(ms => ms.map(m => m.id === id ? { ...m, [field]: value } : m))
+    setState(s => ({ ...s, milestones: s.milestones.map(m => m.id === id ? { ...m, [field]: value } : m) }))
 
   const contract = parseFloat(contractValue.replace(/,/g, '')) || 0
   const totalPct = milestones.reduce((s, m) => s + (parseFloat(m.pct) || 0), 0)
@@ -37,12 +45,15 @@ export default function PaymentSchedule() {
 
   const fmt = (n: number) => n > 0 ? `₪${Math.round(n).toLocaleString('he-IL')}` : '—'
 
+  if (loading) return <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>
+
   return (
     <div className="space-y-5" dir="rtl">
+      {saving && <div className="text-xs text-slate-400 text-left">שומר...</div>}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">שכ"ט כולל (ללא מע"מ, ₪)</label>
-          <input type="text" value={contractValue} onChange={e => setContractValue(e.target.value)} placeholder="200,000"
+          <input type="text" value={contractValue} onChange={e => setState(s => ({ ...s, contractValue: e.target.value }))} placeholder="200,000"
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
         <div className="flex items-end">

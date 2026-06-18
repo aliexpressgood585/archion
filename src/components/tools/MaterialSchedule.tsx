@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useToolState } from '@/hooks/useToolState'
 import { Plus, Trash2 } from 'lucide-react'
 
 interface Room {
@@ -13,18 +13,12 @@ interface Room {
   notes: string
 }
 
+interface State {
+  rooms: Room[]
+}
+
 function newRoom(): Room {
-  return {
-    id: crypto.randomUUID(),
-    name: '',
-    floor: 'קרקע',
-    floorFinish: '',
-    floorBase: '',
-    wallFinish: '',
-    ceilingFinish: '',
-    windowType: '',
-    notes: '',
-  }
+  return { id: crypto.randomUUID(), name: '', floor: 'קרקע', floorFinish: '', floorBase: '', wallFinish: '', ceilingFinish: '', windowType: '', notes: '' }
 }
 
 const COLUMNS = [
@@ -44,20 +38,28 @@ const PRESETS = {
   ceilingFinish: ['גבס קרטון', 'טיח ישיר', 'תקרה מתלה', 'חשיפת יסודות', 'גבס קשתות', 'חיפוי עץ', ''],
 }
 
-export default function MaterialSchedule() {
-  const [rooms, setRooms] = useState<Room[]>([
+const DEFAULT: State = {
+  rooms: [
     { ...newRoom(), name: 'כניסה', floorFinish: 'שיש טבעי', wallFinish: 'טיח + צבע', ceilingFinish: 'גבס קרטון' },
     { ...newRoom(), name: 'סלון',  floorFinish: 'פרקט עץ',  wallFinish: 'טיח + צבע', ceilingFinish: 'טיח ישיר' },
     { ...newRoom(), name: 'מטבח', floorFinish: 'פורצלן 60×60', wallFinish: 'אריחי קרמיקה', ceilingFinish: 'גבס קרטון' },
-  ])
+  ],
+}
 
-  const add = () => setRooms(r => [...r, newRoom()])
-  const remove = (id: string) => setRooms(r => r.filter(x => x.id !== id))
+export default function MaterialSchedule({ projectId }: { projectId: string | null }) {
+  const { state, setState, loading, saving } = useToolState('material-schedule', projectId, DEFAULT)
+  const { rooms } = state
+
+  const add = () => setState(s => ({ ...s, rooms: [...s.rooms, newRoom()] }))
+  const remove = (id: string) => setState(s => ({ ...s, rooms: s.rooms.filter(x => x.id !== id) }))
   const update = (id: string, field: keyof Room, value: string) =>
-    setRooms(r => r.map(x => x.id === id ? { ...x, [field]: value } : x))
+    setState(s => ({ ...s, rooms: s.rooms.map(x => x.id === id ? { ...x, [field]: value } : x) }))
+
+  if (loading) return <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>
 
   return (
     <div className="space-y-5" dir="rtl">
+      {saving && <div className="text-xs text-slate-400 text-left">שומר...</div>}
       <div className="overflow-x-auto rounded-xl border border-slate-200">
         <table className="text-sm border-collapse" style={{ minWidth: 900 }}>
           <thead className="bg-slate-50 text-slate-600">
@@ -74,8 +76,7 @@ export default function MaterialSchedule() {
             {rooms.map((room, i) => (
               <tr key={room.id} className={`${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} border-b border-slate-100`}>
                 <td className="px-3 py-1.5">
-                  <input value={room.name} onChange={e => update(room.id, 'name', e.target.value)}
-                    placeholder="שם חדר"
+                  <input value={room.name} onChange={e => update(room.id, 'name', e.target.value)} placeholder="שם חדר"
                     className="w-full border border-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
                 </td>
                 <td className="px-3 py-1.5">
@@ -84,13 +85,9 @@ export default function MaterialSchedule() {
                 </td>
                 {(['floorFinish', 'floorBase', 'wallFinish', 'ceilingFinish'] as const).map(field => (
                   <td key={field} className="px-3 py-1.5">
-                    <input
-                      list={`list-${field}`}
-                      value={room[field]}
-                      onChange={e => update(room.id, field, e.target.value)}
+                    <input list={`list-${field}`} value={room[field]} onChange={e => update(room.id, field, e.target.value)}
                       placeholder="בחר או הקלד..."
-                      className="w-full border border-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    />
+                      className="w-full border border-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
                     {(PRESETS as Record<string, string[]>)[field] && (
                       <datalist id={`list-${field}`}>
                         {(PRESETS as Record<string, string[]>)[field].map(p => <option key={p} value={p} />)}
@@ -99,18 +96,15 @@ export default function MaterialSchedule() {
                   </td>
                 ))}
                 <td className="px-3 py-1.5">
-                  <input value={room.windowType} onChange={e => update(room.id, 'windowType', e.target.value)}
-                    placeholder="סוג חלון..."
+                  <input value={room.windowType} onChange={e => update(room.id, 'windowType', e.target.value)} placeholder="סוג חלון..."
                     className="w-full border border-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
                 </td>
                 <td className="px-3 py-1.5">
-                  <input value={room.notes} onChange={e => update(room.id, 'notes', e.target.value)}
-                    placeholder="הערה..."
+                  <input value={room.notes} onChange={e => update(room.id, 'notes', e.target.value)} placeholder="הערה..."
                     className="w-full border border-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
                 </td>
                 <td className="px-2 py-1.5">
-                  <button onClick={() => remove(room.id)}
-                    className="p-1 text-slate-400 hover:text-red-500 transition-colors">
+                  <button onClick={() => remove(room.id)} className="p-1 text-slate-400 hover:text-red-500 transition-colors">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </td>
@@ -133,8 +127,7 @@ export default function MaterialSchedule() {
             const header = COLUMNS.map(c => c.label).join('\t')
             navigator.clipboard.writeText([header, ...rows].join('\n'))
           }}
-          className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors"
-        >
+          className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors">
           העתק לאקסל
         </button>
       </div>

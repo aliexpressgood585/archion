@@ -1,6 +1,9 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, Save } from 'lucide-react'
+import { useState, useEffect } from 'react'
 import { TOOLS } from '@/data/tools'
+import { supabase } from '@/integrations/supabase/client'
+import { useAuth } from '@/lib/auth-context'
 import AreaCalculator from '@/components/tools/AreaCalculator'
 import FeeCalculator from '@/components/tools/FeeCalculator'
 import BudgetBreakdown from '@/components/tools/BudgetBreakdown'
@@ -30,37 +33,54 @@ export const Route = createFileRoute('/_authenticated/tools/$toolId')({
   component: ToolPage,
 })
 
-const TOOL_COMPONENTS: Record<string, React.ComponentType> = {
-  'area-calculator':      AreaCalculator,
-  'fee-calculator':       FeeCalculator,
-  'budget-breakdown':     BudgetBreakdown,
-  'density-calculator':   DensityCalculator,
-  'parking-calculator':   ParkingCalculator,
-  'energy-calculator':    EnergyCalculator,
-  'setback-calculator':   SetbackCalculator,
-  'room-program':         RoomProgram,
-  'schedule-planner':     SchedulePlanner,
-  'phase-tracker':        PhaseTracker,
-  'payment-schedule':     PaymentSchedule,
-  'material-schedule':    MaterialSchedule,
-  'punch-list':           PunchList,
-  'inspection-checklist': InspectionChecklist,
-  'rfi-log':              RfiLog,
-  'change-order-log':     ChangeOrderLog,
-  'meeting-notes':        MeetingNotes,
-  'permit-checklist':     PermitChecklist,
-  'accessibility-check':  AccessibilityCheck,
-  'sustainability-check': SustainabilityCheck,
-  'time-tracker':         TimeTracker,
-  'profitability-tracker':ProfitabilityTracker,
-  'proposal-builder':     ProposalBuilder,
-  'spec-checklist':       SpecChecklist,
+type ToolProps = { projectId: string | null }
+
+const TOOL_COMPONENTS: Record<string, React.ComponentType<ToolProps>> = {
+  'area-calculator':       AreaCalculator,
+  'fee-calculator':        FeeCalculator,
+  'budget-breakdown':      BudgetBreakdown,
+  'density-calculator':    DensityCalculator,
+  'parking-calculator':    ParkingCalculator,
+  'energy-calculator':     EnergyCalculator,
+  'setback-calculator':    SetbackCalculator,
+  'room-program':          RoomProgram,
+  'schedule-planner':      SchedulePlanner,
+  'phase-tracker':         PhaseTracker,
+  'payment-schedule':      PaymentSchedule,
+  'material-schedule':     MaterialSchedule,
+  'punch-list':            PunchList,
+  'inspection-checklist':  InspectionChecklist,
+  'rfi-log':               RfiLog,
+  'change-order-log':      ChangeOrderLog,
+  'meeting-notes':         MeetingNotes,
+  'permit-checklist':      PermitChecklist,
+  'accessibility-check':   AccessibilityCheck,
+  'sustainability-check':  SustainabilityCheck,
+  'time-tracker':          TimeTracker,
+  'profitability-tracker': ProfitabilityTracker,
+  'proposal-builder':      ProposalBuilder,
+  'spec-checklist':        SpecChecklist,
 }
+
+interface Project { id: string; name: string }
 
 function ToolPage() {
   const { toolId } = Route.useParams()
+  const { profile } = useAuth()
+  const [projects, setProjects] = useState<Project[]>([])
+  const [projectId, setProjectId] = useState<string | null>(null)
   const toolDef = TOOLS.find(t => t.id === toolId)
   const ToolComponent = TOOL_COMPONENTS[toolId]
+
+  useEffect(() => {
+    if (!profile?.organization_id) return
+    supabase
+      .from('projects')
+      .select('id, name')
+      .eq('organization_id', profile.organization_id)
+      .order('name')
+      .then(({ data }) => setProjects(data ?? []))
+  }, [profile?.organization_id])
 
   if (!toolDef || !ToolComponent) {
     return (
@@ -73,7 +93,6 @@ function ToolPage() {
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto" dir="rtl">
-      {/* Back + header */}
       <div className="mb-6">
         <Link
           to="/tools"
@@ -82,20 +101,36 @@ function ToolPage() {
           <ArrowRight className="w-4 h-4" />
           כל הכלים
         </Link>
-        <div className="flex items-start gap-4">
-          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border-2 ${toolDef.colorClass}`}>
-            <span className="text-2xl">🔧</span>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div className="flex items-start gap-4">
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border-2 ${toolDef.colorClass}`}>
+              <span className="text-2xl">🔧</span>
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">{toolDef.titleHe}</h1>
+              <p className="text-slate-500 text-sm mt-0.5">{toolDef.descHe}</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">{toolDef.titleHe}</h1>
-            <p className="text-slate-500 text-sm mt-0.5">{toolDef.descHe}</p>
+
+          {/* Project selector */}
+          <div className="flex items-center gap-2">
+            <Save className="w-4 h-4 text-slate-400" />
+            <select
+              value={projectId ?? ''}
+              onChange={e => setProjectId(e.target.value || null)}
+              className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">ללא פרויקט (לא נשמר)</option>
+              {projects.map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
           </div>
         </div>
       </div>
 
-      {/* Tool content */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6">
-        <ToolComponent />
+        <ToolComponent projectId={projectId} />
       </div>
     </div>
   )

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useToolState } from '@/hooks/useToolState'
 import { Plus, Trash2 } from 'lucide-react'
 
 interface Space {
@@ -10,22 +10,29 @@ interface Space {
   notes: string
 }
 
+interface State {
+  spaces: Space[]
+  available: string
+}
+
 const ZONES = ['ציבורי', 'פרטי', 'שירות', 'תנועה', 'חיצוני']
 
 function newSpace(): Space {
   return { id: crypto.randomUUID(), zone: 'ציבורי', name: '', count: '1', reqArea: '', notes: '' }
 }
 
-export default function RoomProgram() {
-  const [spaces, setSpaces] = useState<Space[]>([newSpace()])
-  const [available, setAvailable] = useState('')
+const DEFAULT: State = { spaces: [newSpace()], available: '' }
 
-  const add = () => setSpaces(s => [...s, newSpace()])
-  const remove = (id: string) => setSpaces(s => s.filter(x => x.id !== id))
+export default function RoomProgram({ projectId }: { projectId: string | null }) {
+  const { state, setState, loading, saving } = useToolState('room-program', projectId, DEFAULT)
+  const { spaces, available } = state
+
+  const add = () => setState(s => ({ ...s, spaces: [...s.spaces, newSpace()] }))
+  const remove = (id: string) => setState(s => ({ ...s, spaces: s.spaces.filter(x => x.id !== id) }))
   const update = (id: string, field: keyof Space, value: string) =>
-    setSpaces(s => s.map(x => x.id === id ? { ...x, [field]: value } : x))
+    setState(s => ({ ...s, spaces: s.spaces.map(x => x.id === id ? { ...x, [field]: value } : x) }))
 
-  const spaceArea = (s: Space) => (parseFloat(s.count) || 1) * (parseFloat(s.reqArea) || 0)
+  const spaceArea = (sp: Space) => (parseFloat(sp.count) || 1) * (parseFloat(sp.reqArea) || 0)
   const totalRequired = spaces.reduce((sum, s) => sum + spaceArea(s), 0)
   const availableArea = parseFloat(available) || 0
   const diff = availableArea - totalRequired
@@ -35,12 +42,15 @@ export default function RoomProgram() {
     byZone[s.zone] = (byZone[s.zone] || 0) + spaceArea(s)
   }
 
+  if (loading) return <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>
+
   return (
     <div className="space-y-5" dir="rtl">
+      {saving && <div className="text-xs text-slate-400 text-left">שומר...</div>}
       <div className="flex items-center gap-4">
         <div className="flex-1">
           <label className="block text-sm font-medium text-slate-700 mb-1">שטח בנייה זמין (מ"ר)</label>
-          <input type="number" value={available} onChange={e => setAvailable(e.target.value)} placeholder="למשל: 250"
+          <input type="number" value={available} onChange={e => setState(s => ({ ...s, available: e.target.value }))} placeholder="למשל: 250"
             className="w-48 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
       </div>

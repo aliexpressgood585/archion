@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useToolState } from '@/hooks/useToolState'
 
 type SpecStatus = 'included' | 'partial' | 'missing' | 'na'
 
@@ -17,115 +17,123 @@ interface SpecSection {
   items: SpecItem[]
 }
 
+interface State {
+  sections: SpecSection[]
+}
+
 const STATUS_META: Record<SpecStatus, { label: string; color: string }> = {
-  included: { label: 'כלול',   color: 'bg-green-100 text-green-700 border-green-200' },
-  partial:  { label: 'חלקי',   color: 'bg-amber-100 text-amber-700 border-amber-200' },
-  missing:  { label: 'חסר',    color: 'bg-red-100 text-red-700 border-red-200' },
+  included: { label: 'כלול',       color: 'bg-green-100 text-green-700 border-green-200' },
+  partial:  { label: 'חלקי',       color: 'bg-amber-100 text-amber-700 border-amber-200' },
+  missing:  { label: 'חסר',        color: 'bg-red-100 text-red-700 border-red-200' },
   na:       { label: 'לא רלוונטי', color: 'bg-slate-100 text-slate-500 border-slate-200' },
 }
 
 const ORDER: SpecStatus[] = ['na', 'included', 'partial', 'missing']
 
-function mk(label: string, standard?: string): SpecItem {
-  return { id: crypto.randomUUID(), label, standard, status: 'na', notes: '' }
+function mk(id: string, label: string, standard?: string): SpecItem {
+  return { id, label, standard, status: 'na', notes: '' }
 }
 
 const INITIAL: SpecSection[] = [
   {
     id: 'structural', title: 'קונסטרוקציה', emoji: '🏗',
     items: [
-      mk('מפרט בטון — תערובת, עמידות, כיסוי', 'IS 118'),
-      mk('מפרט ברזל — סוג, ציפוי', 'IS 10'),
-      mk('מפרט ריצוף טרומי (אם ישים)'),
-      mk('מפרט עבודות עפר — נשיאות קרקע'),
-      mk('מפרט יציקות מיוחדות'),
+      mk('st1', 'מפרט בטון — תערובת, עמידות, כיסוי', 'IS 118'),
+      mk('st2', 'מפרט ברזל — סוג, ציפוי', 'IS 10'),
+      mk('st3', 'מפרט ריצוף טרומי (אם ישים)'),
+      mk('st4', 'מפרט עבודות עפר — נשיאות קרקע'),
+      mk('st5', 'מפרט יציקות מיוחדות'),
     ],
   },
   {
     id: 'masonry', title: 'בנאות ועבודות קרמיקה', emoji: '🧱',
     items: [
-      mk('מפרט בלוקים — סוג, מידה, עמידות'),
-      mk('מפרט טיח — סוג, שכבות, עובי'),
-      mk('מפרט אריחים — ריצוף'),
-      mk('מפרט אריחים — חיפוי קירות'),
-      mk('מפרט איטום — תת-רצפה, גג, שירותים'),
+      mk('ma1', 'מפרט בלוקים — סוג, מידה, עמידות'),
+      mk('ma2', 'מפרט טיח — סוג, שכבות, עובי'),
+      mk('ma3', 'מפרט אריחים — ריצוף'),
+      mk('ma4', 'מפרט אריחים — חיפוי קירות'),
+      mk('ma5', 'מפרט איטום — תת-רצפה, גג, שירותים'),
     ],
   },
   {
     id: 'aluminum', title: 'אלומיניום וזכוכית', emoji: '🪟',
     items: [
-      mk('מפרט פרופיל אלומיניום — סדרה, ציפוי'),
-      mk('מפרט זכוכית — עובי, סוג (כפולה / בטיחות)', 'IS 966'),
-      mk('מפרט דלתות כניסה'),
-      mk('מפרט גגון / קונסטרוקציית זכוכית'),
-      mk('ערכי U לחלונות'),
+      mk('al1', 'מפרט פרופיל אלומיניום — סדרה, ציפוי'),
+      mk('al2', 'מפרט זכוכית — עובי, סוג (כפולה / בטיחות)', 'IS 966'),
+      mk('al3', 'מפרט דלתות כניסה'),
+      mk('al4', 'מפרט גגון / קונסטרוקציית זכוכית'),
+      mk('al5', 'ערכי U לחלונות'),
     ],
   },
   {
     id: 'plumbing', title: 'אינסטלציה סניטרית', emoji: '🚿',
     items: [
-      mk('מפרט צנרת קרה/חמה', 'IS 1099'),
-      mk('מפרט ביוב ונקז'),
-      mk('מפרט מחממי מים — ממוסחר / סולארי'),
-      mk('מפרט מסנן מים'),
-      mk('מפרט גינון ואגירת גשם'),
+      mk('pl1', 'מפרט צנרת קרה/חמה', 'IS 1099'),
+      mk('pl2', 'מפרט ביוב ונקז'),
+      mk('pl3', 'מפרט מחממי מים — ממוסחר / סולארי'),
+      mk('pl4', 'מפרט מסנן מים'),
+      mk('pl5', 'מפרט גינון ואגירת גשם'),
     ],
   },
   {
     id: 'electrical', title: 'חשמל וחזקים/חלשים', emoji: '⚡',
     items: [
-      mk('מפרט לוח חשמל — TA'),
-      mk('מפרט כבלים — סוג, חתך'),
-      mk('מפרט תאורה — טיפוסים'),
-      mk('מפרט מצלמות / אינטרקום / אזעקה'),
-      mk('מפרט תחנות טעינה לרכב חשמלי'),
+      mk('el1', 'מפרט לוח חשמל — TA'),
+      mk('el2', 'מפרט כבלים — סוג, חתך'),
+      mk('el3', 'מפרט תאורה — טיפוסים'),
+      mk('el4', 'מפרט מצלמות / אינטרקום / אזעקה'),
+      mk('el5', 'מפרט תחנות טעינה לרכב חשמלי'),
     ],
   },
   {
     id: 'hvac', title: 'מיזוג אוויר ואוורור', emoji: '❄️',
     items: [
-      mk('מפרט יחידות מיזוג — COP / SEER'),
-      mk('מפרט ונטילציה מרכזית / עצמאית'),
-      mk('מפרט מאווררים ומניפות'),
-      mk('מפרט חדר מכונות'),
-      mk('חישוב עומסי חום (אם נדרש)'),
+      mk('hv1', 'מפרט יחידות מיזוג — COP / SEER'),
+      mk('hv2', 'מפרט ונטילציה מרכזית / עצמאית'),
+      mk('hv3', 'מפרט מאווררים ומניפות'),
+      mk('hv4', 'מפרט חדר מכונות'),
+      mk('hv5', 'חישוב עומסי חום (אם נדרש)'),
     ],
   },
   {
     id: 'finishes', title: 'גמרים ועבודות נגרות', emoji: '🪵',
     items: [
-      mk('מפרט ריהוט מובנה — ארונות מטבח'),
-      mk('מפרט דלתות פנים — חומר, גימור'),
-      mk('מפרט מסגרות / אדנות'),
-      mk('מפרט צבעים — סוג, מספר שכבות'),
-      mk('מפרט פרגולה / קונסטרוקציית מתכת'),
+      mk('fi1', 'מפרט ריהוט מובנה — ארונות מטבח'),
+      mk('fi2', 'מפרט דלתות פנים — חומר, גימור'),
+      mk('fi3', 'מפרט מסגרות / אדנות'),
+      mk('fi4', 'מפרט צבעים — סוג, מספר שכבות'),
+      mk('fi5', 'מפרט פרגולה / קונסטרוקציית מתכת'),
     ],
   },
   {
     id: 'fire', title: 'כיבוי אש ובטיחות', emoji: '🔥',
     items: [
-      mk('מפרט גלאי עשן / חום'),
-      mk('מפרט ממטרים (Sprinkler)'),
-      mk('מפרט לחיצות ידניות'),
-      mk('מפרט שילוט ותאורת חירום'),
-      mk('עמידות אש דלתות ומחיצות'),
+      mk('fr1', 'מפרט גלאי עשן / חום'),
+      mk('fr2', 'מפרט ממטרים (Sprinkler)'),
+      mk('fr3', 'מפרט לחיצות ידניות'),
+      mk('fr4', 'מפרט שילוט ותאורת חירום'),
+      mk('fr5', 'עמידות אש דלתות ומחיצות'),
     ],
   },
 ]
 
-export default function SpecChecklist() {
-  const [sections, setSections] = useState<SpecSection[]>(INITIAL)
+const DEFAULT: State = { sections: INITIAL }
+
+export default function SpecChecklist({ projectId }: { projectId: string | null }) {
+  const { state, setState, loading, saving } = useToolState('spec-checklist', projectId, DEFAULT)
+  const { sections } = state
 
   const cycleStatus = (sId: string, iId: string, cur: SpecStatus) => {
     const next = ORDER[(ORDER.indexOf(cur) + 1) % ORDER.length]
-    setSections(ss => ss.map(s => s.id === sId
-      ? { ...s, items: s.items.map(it => it.id === iId ? { ...it, status: next } : it) }
-      : s))
+    setState(s => ({ ...s, sections: s.sections.map(sec => sec.id === sId
+      ? { ...sec, items: sec.items.map(it => it.id === iId ? { ...it, status: next } : it) }
+      : sec) }))
   }
+
   const setNotes = (sId: string, iId: string, notes: string) =>
-    setSections(ss => ss.map(s => s.id === sId
-      ? { ...s, items: s.items.map(it => it.id === iId ? { ...it, notes } : it) }
-      : s))
+    setState(s => ({ ...s, sections: s.sections.map(sec => sec.id === sId
+      ? { ...sec, items: sec.items.map(it => it.id === iId ? { ...it, notes } : it) }
+      : sec) }))
 
   const allItems = sections.flatMap(s => s.items)
   const relevant = allItems.filter(i => i.status !== 'na')
@@ -135,9 +143,11 @@ export default function SpecChecklist() {
   const total = relevant.length
   const completePct = total > 0 ? ((included + partial * 0.5) / total) * 100 : 0
 
+  if (loading) return <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>
+
   return (
     <div className="space-y-5" dir="rtl">
-      {/* Progress */}
+      {saving && <div className="text-xs text-slate-400 text-left">שומר...</div>}
       <div className="bg-slate-50 rounded-xl border border-slate-200 p-4">
         <div className="flex justify-between items-center mb-2">
           <span className="text-sm font-medium text-slate-700">שלמות מסמכי מפרט</span>

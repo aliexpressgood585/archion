@@ -1,5 +1,5 @@
-import { useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
+import { useToolState } from '@/hooks/useToolState'
 
 interface CostLine {
   id: string
@@ -8,26 +8,33 @@ interface CostLine {
   amount: string
 }
 
-const CATEGORIES = ['כ"א — אדריכל בכיר', 'כ"א — אדריכל', 'כ"א — מתכנן', 'יועצים חיצוניים', 'הוצאות משרד', 'פלוטים / הדפסות', 'תוכנה', 'נסיעות', 'אחר']
-
-function newLine(category = 'כ"א — אדריכל'): CostLine {
-  return { id: crypto.randomUUID(), category, description: '', amount: '' }
+interface State {
+  contractValue: string
+  paidSoFar: string
+  costs: CostLine[]
 }
 
-export default function ProfitabilityTracker() {
-  const [contractValue, setContractValue] = useState('')
-  const [paidSoFar, setPaidSoFar] = useState('')
-  const [costs, setCosts] = useState<CostLine[]>([
-    newLine('כ"א — אדריכל בכיר'),
-    newLine('כ"א — אדריכל'),
-    newLine('יועצים חיצוניים'),
-    newLine('הוצאות משרד'),
-  ])
+const CATEGORIES = ['כ"א — אדריכל בכיר', 'כ"א — אדריכל', 'כ"א — מתכנן', 'יועצים חיצוניים', 'הוצאות משרד', 'פלוטים / הדפסות', 'תוכנה', 'נסיעות', 'אחר']
 
-  const add = () => setCosts(c => [...c, newLine()])
-  const remove = (id: string) => setCosts(c => c.filter(x => x.id !== id))
+const DEFAULT: State = {
+  contractValue: '',
+  paidSoFar: '',
+  costs: [
+    { id: crypto.randomUUID(), category: 'כ"א — אדריכל בכיר', description: '', amount: '' },
+    { id: crypto.randomUUID(), category: 'כ"א — אדריכל',      description: '', amount: '' },
+    { id: crypto.randomUUID(), category: 'יועצים חיצוניים',   description: '', amount: '' },
+    { id: crypto.randomUUID(), category: 'הוצאות משרד',       description: '', amount: '' },
+  ],
+}
+
+export default function ProfitabilityTracker({ projectId }: { projectId: string | null }) {
+  const { state, setState, loading, saving } = useToolState('profitability-tracker', projectId, DEFAULT)
+  const { contractValue, paidSoFar, costs } = state
+
+  const add = () => setState(s => ({ ...s, costs: [...s.costs, { id: crypto.randomUUID(), category: 'כ"א — אדריכל', description: '', amount: '' }] }))
+  const remove = (id: string) => setState(s => ({ ...s, costs: s.costs.filter(x => x.id !== id) }))
   const update = (id: string, field: keyof CostLine, value: string) =>
-    setCosts(c => c.map(x => x.id === id ? { ...x, [field]: value } : x))
+    setState(s => ({ ...s, costs: s.costs.map(x => x.id === id ? { ...x, [field]: value } : x) }))
 
   const contract = parseFloat(contractValue.replace(/,/g, '')) || 0
   const paid = parseFloat(paidSoFar.replace(/,/g, '')) || 0
@@ -45,22 +52,24 @@ export default function ProfitabilityTracker() {
   const fmt = (n: number) => n !== 0 ? `₪${Math.round(Math.abs(n)).toLocaleString('he-IL')}` : '₪0'
   const fmtSigned = (n: number) => `${n >= 0 ? '+' : '-'}${fmt(n)}`
 
+  if (loading) return <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>
+
   return (
     <div className="space-y-5" dir="rtl">
+      {saving && <div className="text-xs text-slate-400 text-left">שומר...</div>}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">שווי חוזה (ללא מע"מ, ₪)</label>
-          <input type="text" value={contractValue} onChange={e => setContractValue(e.target.value)} placeholder="150,000"
+          <input type="text" value={contractValue} onChange={e => setState(s => ({ ...s, contractValue: e.target.value }))} placeholder="150,000"
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">שולם עד כה (₪)</label>
-          <input type="text" value={paidSoFar} onChange={e => setPaidSoFar(e.target.value)} placeholder="60,000"
+          <input type="text" value={paidSoFar} onChange={e => setState(s => ({ ...s, paidSoFar: e.target.value }))} placeholder="60,000"
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
       </div>
 
-      {/* Costs table */}
       <div className="overflow-x-auto rounded-xl border border-slate-200">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-slate-600">
@@ -109,7 +118,6 @@ export default function ProfitabilityTracker() {
         <Plus className="w-4 h-4" /> הוסף עלות
       </button>
 
-      {/* Results */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-blue-50 rounded-xl p-4 text-center border border-blue-100">
           <div className="text-xl font-bold text-blue-700">{fmt(contract)}</div>
@@ -133,7 +141,6 @@ export default function ProfitabilityTracker() {
         </div>
       </div>
 
-      {/* By category */}
       {Object.keys(byCat).length > 0 && (
         <div className="bg-white rounded-xl border border-slate-200 p-4">
           <div className="text-sm font-medium text-slate-700 mb-3">עלויות לפי קטגוריה</div>

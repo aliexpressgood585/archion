@@ -1,5 +1,5 @@
-import { useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
+import { useToolState } from '@/hooks/useToolState'
 
 interface Layer {
   id: string
@@ -15,7 +15,10 @@ interface Assembly {
   layers: Layer[]
 }
 
-// Israeli standard IS 1045 limits (U-value W/m²K)
+interface State {
+  assemblies: Assembly[]
+}
+
 const STANDARD_LIMITS: Record<string, { label: string; limit: number }> = {
   wall:  { label: 'קיר חיצוני', limit: 0.54 },
   roof:  { label: 'גג / תקרה', limit: 0.40 },
@@ -47,8 +50,14 @@ function newAssembly(): Assembly {
   return { id: crypto.randomUUID(), name: 'הרכב קיר חדש', type: 'wall', layers: [newLayer()] }
 }
 
-export default function EnergyCalculator() {
-  const [assemblies, setAssemblies] = useState<Assembly[]>([newAssembly()])
+const DEFAULT: State = { assemblies: [newAssembly()] }
+
+export default function EnergyCalculator({ projectId }: { projectId: string | null }) {
+  const { state, setState, loading, saving } = useToolState('energy-calculator', projectId, DEFAULT)
+  const { assemblies } = state
+
+  const setAssemblies = (updater: Assembly[] | ((prev: Assembly[]) => Assembly[])) =>
+    setState(s => ({ ...s, assemblies: typeof updater === 'function' ? updater(s.assemblies) : updater }))
 
   const addAssembly = () => setAssemblies(a => [...a, newAssembly()])
   const removeAssembly = (id: string) => setAssemblies(a => a.filter(x => x.id !== id))
@@ -65,12 +74,11 @@ export default function EnergyCalculator() {
       : x))
 
   const calcUValue = (asm: Assembly): number | null => {
-    // R_si + sum(d/lambda) + R_se
     const R_si = asm.type === 'roof' ? 0.1 : 0.13
-    const R_se = asm.type === 'roof' ? 0.04 : 0.04
+    const R_se = 0.04
     let R = R_si + R_se
     for (const l of asm.layers) {
-      const d = parseFloat(l.thickness) / 100 // cm to m
+      const d = parseFloat(l.thickness) / 100
       const lam = parseFloat(l.lambda)
       if (!d || !lam) return null
       R += d / lam
@@ -78,8 +86,11 @@ export default function EnergyCalculator() {
     return 1 / R
   }
 
+  if (loading) return <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>
+
   return (
     <div className="space-y-6" dir="rtl">
+      {saving && <div className="text-xs text-slate-400 text-left">שומר...</div>}
       <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-700">
         <strong>תקן ישראלי 1045 — מגבלות ערך U:</strong> קיר חיצוני ≤ 0.54 | גג ≤ 0.40 | רצפה ≤ 0.60 (W/m²K)
       </div>
@@ -91,16 +102,10 @@ export default function EnergyCalculator() {
         return (
           <div key={asm.id} className="border border-slate-200 rounded-xl overflow-hidden">
             <div className="bg-slate-50 px-4 py-3 flex items-center gap-3 flex-wrap">
-              <input
-                value={asm.name}
-                onChange={e => updateAssembly(asm.id, 'name', e.target.value)}
-                className="flex-1 border border-slate-200 rounded-lg px-2 py-1 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              />
-              <select
-                value={asm.type}
-                onChange={e => updateAssembly(asm.id, 'type', e.target.value)}
-                className="border border-slate-200 rounded-lg px-2 py-1 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
+              <input value={asm.name} onChange={e => updateAssembly(asm.id, 'name', e.target.value)}
+                className="flex-1 border border-slate-200 rounded-lg px-2 py-1 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
+              <select value={asm.type} onChange={e => updateAssembly(asm.id, 'type', e.target.value)}
+                className="border border-slate-200 rounded-lg px-2 py-1 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
                 {Object.entries(STANDARD_LIMITS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
               {uVal !== null && (
@@ -123,17 +128,14 @@ export default function EnergyCalculator() {
               {asm.layers.map(layer => (
                 <div key={layer.id} className="grid grid-cols-12 gap-2 items-center">
                   <div className="col-span-5">
-                    <input
-                      list={`materials-${asm.id}`}
-                      value={layer.name}
+                    <input list={`materials-${asm.id}`} value={layer.name}
                       onChange={e => {
                         updateLayer(asm.id, layer.id, 'name', e.target.value)
                         const mat = MATERIALS.find(m => m.name === e.target.value)
                         if (mat) updateLayer(asm.id, layer.id, 'lambda', String(mat.lambda))
                       }}
                       placeholder="שם חומר"
-                      className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                      className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     <datalist id={`materials-${asm.id}`}>
                       {MATERIALS.map(m => <option key={m.name} value={m.name} />)}
                     </datalist>

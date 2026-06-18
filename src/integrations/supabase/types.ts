@@ -468,6 +468,36 @@ export type Database = {
         }
         Relationships: []
       }
+      tool_data: {
+        Row: {
+          id: string
+          organization_id: string
+          project_id: string
+          tool_id: string
+          data: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          project_id: string
+          tool_id: string
+          data?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          project_id?: string
+          tool_id?: string
+          data?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       proposals: {
         Row: {
           id: string

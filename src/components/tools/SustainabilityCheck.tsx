@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useToolState } from '@/hooks/useToolState'
 
 type ItemStatus = 'yes' | 'no' | 'partial' | 'na'
 
@@ -17,6 +17,10 @@ interface SSection {
   items: SItem[]
 }
 
+interface State {
+  sections: SSection[]
+}
+
 const STATUS_META: Record<ItemStatus, { label: string; color: string; pts: number }> = {
   yes:     { label: 'כן',          color: 'bg-green-100 text-green-700',  pts: 1.0 },
   partial: { label: 'חלקי',        color: 'bg-amber-100 text-amber-700',  pts: 0.5 },
@@ -26,61 +30,61 @@ const STATUS_META: Record<ItemStatus, { label: string; color: string; pts: numbe
 
 const ORDER: ItemStatus[] = ['na', 'yes', 'partial', 'no']
 
-function mk(label: string, points = 1): SItem {
-  return { id: crypto.randomUUID(), label, points, status: 'na', notes: '' }
+function mk(id: string, label: string, points = 1): SItem {
+  return { id, label, points, status: 'na', notes: '' }
 }
 
 const INITIAL: SSection[] = [
   {
     id: 'energy', title: 'אנרגיה', emoji: '⚡',
     items: [
-      mk('בידוד תרמי לפי תקן 1045 (ערכי U)', 2),
-      mk('שמשות בבידוד כפול (DGU) לכל פתחי הגג/זכוכית', 2),
-      mk('מערכת סולארית לחימום מים', 1),
-      mk('פאנלים פוטו-וולטאיים', 2),
-      mk('תאורה LED בכל המבנה', 1),
-      mk('חיישני נוכחות / ניהול אנרגיה', 1),
-      mk('הצללה חיצונית פעילה / אלמנטים אדריכליים', 1),
+      mk('en1', 'בידוד תרמי לפי תקן 1045 (ערכי U)', 2),
+      mk('en2', 'שמשות בבידוד כפול (DGU) לכל פתחי הגג/זכוכית', 2),
+      mk('en3', 'מערכת סולארית לחימום מים', 1),
+      mk('en4', 'פאנלים פוטו-וולטאיים', 2),
+      mk('en5', 'תאורה LED בכל המבנה', 1),
+      mk('en6', 'חיישני נוכחות / ניהול אנרגיה', 1),
+      mk('en7', 'הצללה חיצונית פעילה / אלמנטים אדריכליים', 1),
     ],
   },
   {
     id: 'water', title: 'מים', emoji: '💧',
     items: [
-      mk('איסוף מי גשמים לשימוש חוזר', 2),
-      mk('מיחזור מי אפור', 2),
-      mk('ברזים ואסלות חסכוניות', 1),
-      mk('השקיה עם חיישני לחות / טפטוף', 1),
-      mk('גינה בצמחייה מקומית / ממעטת בהשקיה', 1),
+      mk('w1', 'איסוף מי גשמים לשימוש חוזר', 2),
+      mk('w2', 'מיחזור מי אפור', 2),
+      mk('w3', 'ברזים ואסלות חסכוניות', 1),
+      mk('w4', 'השקיה עם חיישני לחות / טפטוף', 1),
+      mk('w5', 'גינה בצמחייה מקומית / ממעטת בהשקיה', 1),
     ],
   },
   {
     id: 'materials', title: 'חומרים', emoji: '🧱',
     items: [
-      mk('שימוש בחומרים ממוחזרים', 1),
-      mk('ייצור מקומי — מרחק מקס. 500 ק"מ', 1),
-      mk('עץ מוסמך FSC', 1),
-      mk('צבעים / דבקים דלי VOC', 1),
-      mk('ניהול פסולת בנייה ומיחזורה', 1),
+      mk('m1', 'שימוש בחומרים ממוחזרים', 1),
+      mk('m2', 'ייצור מקומי — מרחק מקס. 500 ק"מ', 1),
+      mk('m3', 'עץ מוסמך FSC', 1),
+      mk('m4', 'צבעים / דבקים דלי VOC', 1),
+      mk('m5', 'ניהול פסולת בנייה ומיחזורה', 1),
     ],
   },
   {
     id: 'site', title: 'אתר ושטחים ירוקים', emoji: '🌿',
     items: [
-      mk('גג ירוק / גינת גג', 2),
-      mk('שטחי חדירת מים לקרקע', 1),
-      mk('חניות לאופניים / תחנות טעינה לרכב חשמלי', 1),
-      mk('קרבה לתחבורה ציבורית', 1),
-      mk('שמירה על עצים קיימים', 1),
+      mk('s1', 'גג ירוק / גינת גג', 2),
+      mk('s2', 'שטחי חדירת מים לקרקע', 1),
+      mk('s3', 'חניות לאופניים / תחנות טעינה לרכב חשמלי', 1),
+      mk('s4', 'קרבה לתחבורה ציבורית', 1),
+      mk('s5', 'שמירה על עצים קיימים', 1),
     ],
   },
   {
     id: 'indoor', title: 'איכות פנים', emoji: '🏠',
     items: [
-      mk('אוורור טבעי / מכני בכל החדרים', 1),
-      mk('תאורה טבעית לפחות 75% מהחדרים', 1),
-      mk('ניטור CO₂ / איכות אוויר', 1),
-      mk('חומרים ומוצרים דלי אלרגנים', 1),
-      mk('אקוסטיקה — מחיצות ובידוד קולי', 1),
+      mk('i1', 'אוורור טבעי / מכני בכל החדרים', 1),
+      mk('i2', 'תאורה טבעית לפחות 75% מהחדרים', 1),
+      mk('i3', 'ניטור CO₂ / איכות אוויר', 1),
+      mk('i4', 'חומרים ומוצרים דלי אלרגנים', 1),
+      mk('i5', 'אקוסטיקה — מחיצות ובידוד קולי', 1),
     ],
   },
 ]
@@ -92,14 +96,17 @@ const RATING = [
   { min: 0,  label: 'דורש שיפור', color: 'text-red-600',   desc: 'יש לשפר פריטים מרכזיים' },
 ]
 
-export default function SustainabilityCheck() {
-  const [sections, setSections] = useState<SSection[]>(INITIAL)
+const DEFAULT: State = { sections: INITIAL }
+
+export default function SustainabilityCheck({ projectId }: { projectId: string | null }) {
+  const { state, setState, loading, saving } = useToolState('sustainability-check', projectId, DEFAULT)
+  const { sections } = state
 
   const cycleStatus = (sId: string, iId: string, cur: ItemStatus) => {
     const next = ORDER[(ORDER.indexOf(cur) + 1) % ORDER.length]
-    setSections(ss => ss.map(s => s.id === sId
-      ? { ...s, items: s.items.map(it => it.id === iId ? { ...it, status: next } : it) }
-      : s))
+    setState(s => ({ ...s, sections: s.sections.map(sec => sec.id === sId
+      ? { ...sec, items: sec.items.map(it => it.id === iId ? { ...it, status: next } : it) }
+      : sec) }))
   }
 
   const allItems = sections.flatMap(s => s.items).filter(i => i.status !== 'na')
@@ -108,9 +115,11 @@ export default function SustainabilityCheck() {
   const score = maxPoints > 0 ? (earned / maxPoints) * 100 : 0
   const rating = RATING.find(r => score >= r.min)!
 
+  if (loading) return <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>
+
   return (
     <div className="space-y-5" dir="rtl">
-      {/* Score */}
+      {saving && <div className="text-xs text-slate-400 text-left">שומר...</div>}
       <div className="bg-slate-50 rounded-xl border border-slate-200 p-4">
         <div className="flex justify-between items-center mb-2">
           <span className="text-sm font-medium text-slate-700">ציון קיימות</span>

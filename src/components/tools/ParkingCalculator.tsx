@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useToolState } from '@/hooks/useToolState'
 
 interface UseType {
   label: string
@@ -20,13 +20,27 @@ const USE_TYPES: Record<string, UseType> = {
   school:          { label: 'חינוך',                unit: 'כיתות',        placeholder: '20',   ratioLabel: 'חניה לכיתה',    defaultRatio: 2.0, accessiblePct: 4 },
 }
 
-export default function ParkingCalculator() {
-  const [useType, setUseType] = useState('residential_3br')
-  const [quantity, setQuantity] = useState('')
-  const [customRatio, setCustomRatio] = useState('')
-  const [mixedUse, setMixedUse] = useState(false)
-  const [residential, setResidential] = useState('')
-  const [commercial, setCommercial] = useState('')
+interface State {
+  useType: string
+  quantity: string
+  customRatio: string
+  mixedUse: boolean
+  residential: string
+  commercial: string
+}
+
+const DEFAULT: State = {
+  useType: 'residential_3br',
+  quantity: '',
+  customRatio: '',
+  mixedUse: false,
+  residential: '',
+  commercial: '',
+}
+
+export default function ParkingCalculator({ projectId }: { projectId: string | null }) {
+  const { state, setState, loading, saving } = useToolState('parking-calculator', projectId, DEFAULT)
+  const { useType, quantity, customRatio, mixedUse, residential, commercial } = state
 
   const type = USE_TYPES[useType]
   const ratio = parseFloat(customRatio) || type.defaultRatio
@@ -47,16 +61,15 @@ export default function ParkingCalculator() {
   const accessible = Math.max(1, Math.ceil(requiredRounded * type.accessiblePct / 100))
   const regular = requiredRounded - accessible
 
+  if (loading) return <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>
+
   return (
     <div className="space-y-6" dir="rtl">
+      {saving && <div className="text-xs text-slate-400 text-left">שומר...</div>}
       <div className="flex items-center gap-3 mb-2">
         <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={mixedUse}
-            onChange={e => setMixedUse(e.target.checked)}
-            className="w-4 h-4 rounded text-blue-600"
-          />
+          <input type="checkbox" checked={mixedUse} onChange={e => setState(s => ({ ...s, mixedUse: e.target.checked }))}
+            className="w-4 h-4 rounded text-blue-600" />
           <span className="text-sm text-slate-600">שימוש מעורב (מגורים + מסחר)</span>
         </label>
       </div>
@@ -65,13 +78,13 @@ export default function ParkingCalculator() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">יחידות דיור</label>
-            <input type="number" value={residential} onChange={e => setResidential(e.target.value)} placeholder="20"
+            <input type="number" value={residential} onChange={e => setState(s => ({ ...s, residential: e.target.value }))} placeholder="20"
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             <p className="text-xs text-slate-400 mt-1">1.5 חניה ליח"ד (3+ חד')</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">שטח מסחרי (מ"ר)</label>
-            <input type="number" value={commercial} onChange={e => setCommercial(e.target.value)} placeholder="300"
+            <input type="number" value={commercial} onChange={e => setState(s => ({ ...s, commercial: e.target.value }))} placeholder="300"
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             <p className="text-xs text-slate-400 mt-1">5 חניות ל-100מ"ר</p>
           </div>
@@ -80,19 +93,19 @@ export default function ParkingCalculator() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">שימוש</label>
-            <select value={useType} onChange={e => setUseType(e.target.value)}
+            <select value={useType} onChange={e => setState(s => ({ ...s, useType: e.target.value }))}
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
               {Object.entries(USE_TYPES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">כמות ({type.unit})</label>
-            <input type="number" value={quantity} onChange={e => setQuantity(e.target.value)} placeholder={type.placeholder}
+            <input type="number" value={quantity} onChange={e => setState(s => ({ ...s, quantity: e.target.value }))} placeholder={type.placeholder}
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">{type.ratioLabel}</label>
-            <input type="number" step="0.1" value={customRatio} onChange={e => setCustomRatio(e.target.value)} placeholder={String(type.defaultRatio)}
+            <input type="number" step="0.1" value={customRatio} onChange={e => setState(s => ({ ...s, customRatio: e.target.value }))} placeholder={String(type.defaultRatio)}
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
         </div>

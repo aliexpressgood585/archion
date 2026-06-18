@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useToolState } from '@/hooks/useToolState'
 import { Plus, Trash2 } from 'lucide-react'
 
 interface Room {
@@ -10,46 +10,47 @@ interface Room {
   category: string
 }
 
+interface State {
+  rooms: Room[]
+  netFactor: string
+}
+
 const CATEGORIES = ['מגורים', 'שירות', 'מחסן', 'מסדרון', 'חיצוני']
 
 function newRoom(): Room {
   return { id: crypto.randomUUID(), name: '', floor: 'קרקע', length: '', width: '', category: 'מגורים' }
 }
 
-export default function AreaCalculator() {
-  const [rooms, setRooms] = useState<Room[]>([newRoom()])
-  const [netFactor, setNetFactor] = useState('0.85')
+const DEFAULT: State = { rooms: [newRoom()], netFactor: '0.85' }
+
+export default function AreaCalculator({ projectId }: { projectId: string | null }) {
+  const { state, setState, loading, saving } = useToolState('area-calculator', projectId, DEFAULT)
+  const { rooms, netFactor } = state
+
+  const setRooms = (r: Room[] | ((p: Room[]) => Room[])) =>
+    setState(s => ({ ...s, rooms: typeof r === 'function' ? r(s.rooms) : r }))
 
   const add = () => setRooms(r => [...r, newRoom()])
   const remove = (id: string) => setRooms(r => r.filter(x => x.id !== id))
   const update = (id: string, field: keyof Room, value: string) =>
     setRooms(r => r.map(x => x.id === id ? { ...x, [field]: value } : x))
 
-  const area = (r: Room) => {
-    const l = parseFloat(r.length) || 0
-    const w = parseFloat(r.width) || 0
-    return l * w
-  }
-
+  const area = (r: Room) => (parseFloat(r.length) || 0) * (parseFloat(r.width) || 0)
   const totalGross = rooms.reduce((s, r) => s + area(r), 0)
   const totalNet = totalGross * (parseFloat(netFactor) || 1)
-
   const floors = [...new Set(rooms.map(r => r.floor))].sort()
+
+  if (loading) return <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>
 
   return (
     <div className="space-y-6" dir="rtl">
+      {saving && <div className="text-xs text-slate-400 text-left">שומר...</div>}
       <div className="flex items-center gap-4 flex-wrap">
         <label className="flex items-center gap-2 text-sm text-slate-600">
           מקדם נטו/ברוטו
-          <input
-            type="number"
-            min="0.5"
-            max="1"
-            step="0.01"
-            value={netFactor}
-            onChange={e => setNetFactor(e.target.value)}
-            className="w-20 border border-slate-200 rounded-lg px-2 py-1 text-sm text-center"
-          />
+          <input type="number" min="0.5" max="1" step="0.01" value={netFactor}
+            onChange={e => setState(s => ({ ...s, netFactor: e.target.value }))}
+            className="w-20 border border-slate-200 rounded-lg px-2 py-1 text-sm text-center" />
         </label>
         <span className="text-xs text-slate-400">(ברירת מחדל 0.85 = נטו 85% מהברוטו)</span>
       </div>
@@ -71,57 +72,31 @@ export default function AreaCalculator() {
             {rooms.map((r, i) => (
               <tr key={r.id} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
                 <td className="px-3 py-1.5">
-                  <input
-                    value={r.name}
-                    onChange={e => update(r.id, 'name', e.target.value)}
-                    placeholder="למשל: סלון"
-                    className="w-full border border-slate-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                  <input value={r.name} onChange={e => update(r.id, 'name', e.target.value)} placeholder="למשל: סלון"
+                    className="w-full border border-slate-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </td>
                 <td className="px-3 py-1.5">
-                  <input
-                    value={r.floor}
-                    onChange={e => update(r.id, 'floor', e.target.value)}
-                    placeholder="קרקע"
-                    className="w-20 border border-slate-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                  <input value={r.floor} onChange={e => update(r.id, 'floor', e.target.value)} placeholder="קרקע"
+                    className="w-20 border border-slate-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </td>
                 <td className="px-3 py-1.5">
-                  <select
-                    value={r.category}
-                    onChange={e => update(r.id, 'category', e.target.value)}
-                    className="border border-slate-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  >
+                  <select value={r.category} onChange={e => update(r.id, 'category', e.target.value)}
+                    className="border border-slate-200 rounded-lg px-2 py-1 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
                     {CATEGORIES.map(c => <option key={c}>{c}</option>)}
                   </select>
                 </td>
                 <td className="px-3 py-1.5">
-                  <input
-                    type="number"
-                    value={r.length}
-                    onChange={e => update(r.id, 'length', e.target.value)}
-                    placeholder="0.00"
-                    className="w-20 border border-slate-200 rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                  <input type="number" value={r.length} onChange={e => update(r.id, 'length', e.target.value)} placeholder="0.00"
+                    className="w-20 border border-slate-200 rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </td>
                 <td className="px-3 py-1.5">
-                  <input
-                    type="number"
-                    value={r.width}
-                    onChange={e => update(r.id, 'width', e.target.value)}
-                    placeholder="0.00"
-                    className="w-20 border border-slate-200 rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                  <input type="number" value={r.width} onChange={e => update(r.id, 'width', e.target.value)} placeholder="0.00"
+                    className="w-20 border border-slate-200 rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </td>
-                <td className="px-3 py-1.5 text-center font-semibold text-blue-700">
-                  {area(r).toFixed(2)}
-                </td>
+                <td className="px-3 py-1.5 text-center font-semibold text-blue-700">{area(r).toFixed(2)}</td>
                 <td className="px-2 py-1.5">
-                  <button
-                    onClick={() => remove(r.id)}
-                    disabled={rooms.length === 1}
-                    className="p-1 text-slate-400 hover:text-red-500 disabled:opacity-30 transition-colors"
-                  >
+                  <button onClick={() => remove(r.id)} disabled={rooms.length === 1}
+                    className="p-1 text-slate-400 hover:text-red-500 disabled:opacity-30 transition-colors">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </td>
@@ -131,15 +106,10 @@ export default function AreaCalculator() {
         </table>
       </div>
 
-      <button
-        onClick={add}
-        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-      >
-        <Plus className="w-4 h-4" />
-        הוסף חדר
+      <button onClick={add} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+        <Plus className="w-4 h-4" /> הוסף חדר
       </button>
 
-      {/* Totals */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-blue-50 rounded-xl p-4 text-center border border-blue-100">
           <div className="text-2xl font-bold text-blue-700">{totalGross.toFixed(2)} מ"ר</div>

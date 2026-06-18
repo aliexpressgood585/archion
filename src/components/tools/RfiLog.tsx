@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
+import { useToolState } from '@/hooks/useToolState'
 
 type RfiStatus = 'open' | 'pending' | 'answered' | 'closed'
 
@@ -17,6 +18,10 @@ interface RFI {
   urgent: boolean
 }
 
+interface State {
+  rfis: RFI[]
+}
+
 const STATUS_META: Record<RfiStatus, { label: string; color: string }> = {
   open:     { label: 'פתוח',   color: 'bg-red-100 text-red-700' },
   pending:  { label: 'ממתין',  color: 'bg-amber-100 text-amber-700' },
@@ -24,40 +29,28 @@ const STATUS_META: Record<RfiStatus, { label: string; color: string }> = {
   closed:   { label: 'סגור',   color: 'bg-green-100 text-green-700' },
 }
 
-let rfiCounter = 1
-
-function newRfi(): RFI {
-  return {
-    id: crypto.randomUUID(),
-    num: rfiCounter++,
-    date: new Date().toISOString().slice(0, 10),
-    subject: '',
-    description: '',
-    from: '',
-    to: '',
-    response: '',
-    responseDate: '',
-    status: 'open',
-    urgent: false,
-  }
+const DEFAULT: State = {
+  rfis: [{ id: crypto.randomUUID(), num: 1, date: new Date().toISOString().slice(0, 10), subject: '', description: '', from: '', to: '', response: '', responseDate: '', status: 'open', urgent: false }],
 }
 
-export default function RfiLog() {
-  const [rfis, setRfis] = useState<RFI[]>([newRfi()])
+export default function RfiLog({ projectId }: { projectId: string | null }) {
+  const { state, setState, loading, saving } = useToolState('rfi-log', projectId, DEFAULT)
+  const { rfis } = state
   const [expanded, setExpanded] = useState<string | null>(null)
   const [filterStatus, setFilterStatus] = useState<RfiStatus | 'all'>('all')
 
+  const nextNum = () => (rfis.length > 0 ? Math.max(...rfis.map(r => r.num)) : 0) + 1
+
   const add = () => {
-    const r = newRfi()
-    setRfis(rs => [...rs, r])
-    setExpanded(r.id)
+    const id = crypto.randomUUID()
+    setState(s => ({ ...s, rfis: [...s.rfis, { id, num: nextNum(), date: new Date().toISOString().slice(0, 10), subject: '', description: '', from: '', to: '', response: '', responseDate: '', status: 'open', urgent: false }] }))
+    setExpanded(id)
   }
-  const remove = (id: string) => setRfis(rs => rs.filter(x => x.id !== id))
+  const remove = (id: string) => setState(s => ({ ...s, rfis: s.rfis.filter(x => x.id !== id) }))
   const update = (id: string, field: keyof RFI, value: string | boolean) =>
-    setRfis(rs => rs.map(r => r.id === id ? { ...r, [field]: value } : r))
+    setState(s => ({ ...s, rfis: s.rfis.map(r => r.id === id ? { ...r, [field]: value } : r) }))
 
   const filtered = filterStatus === 'all' ? rfis : rfis.filter(r => r.status === filterStatus)
-
   const counts = {
     open: rfis.filter(r => r.status === 'open').length,
     pending: rfis.filter(r => r.status === 'pending').length,
@@ -65,9 +58,11 @@ export default function RfiLog() {
     closed: rfis.filter(r => r.status === 'closed').length,
   }
 
+  if (loading) return <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>
+
   return (
     <div className="space-y-5" dir="rtl">
-      {/* Stats */}
+      {saving && <div className="text-xs text-slate-400 text-left">שומר...</div>}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {(Object.keys(STATUS_META) as RfiStatus[]).map(s => (
           <button key={s} onClick={() => setFilterStatus(filterStatus === s ? 'all' : s)}
@@ -78,14 +73,11 @@ export default function RfiLog() {
         ))}
       </div>
 
-      {/* RFI List */}
       <div className="space-y-2">
         {filtered.map(rfi => (
           <div key={rfi.id} className="border border-slate-200 rounded-xl overflow-hidden">
-            <div
-              className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-slate-50 transition-colors"
-              onClick={() => setExpanded(expanded === rfi.id ? null : rfi.id)}
-            >
+            <div className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-slate-50 transition-colors"
+              onClick={() => setExpanded(expanded === rfi.id ? null : rfi.id)}>
               <span className="text-xs font-bold text-slate-400 w-10 shrink-0">RFI-{rfi.num}</span>
               {rfi.urgent && <span className="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-bold shrink-0">דחוף</span>}
               <div className="flex-1 min-w-0">
@@ -106,8 +98,7 @@ export default function RfiLog() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs text-slate-500 mb-1">נושא</label>
-                    <input value={rfi.subject} onChange={e => update(rfi.id, 'subject', e.target.value)}
-                      placeholder="נושא השאלה"
+                    <input value={rfi.subject} onChange={e => update(rfi.id, 'subject', e.target.value)} placeholder="נושא השאלה"
                       className="w-full border border-slate-200 rounded px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-500" />
                   </div>
                   <div>

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Plus, Trash2, Copy, Check } from 'lucide-react'
+import { useToolState } from '@/hooks/useToolState'
 
 interface Attendee {
   id: string
@@ -21,37 +22,56 @@ interface ActionItem {
   done: boolean
 }
 
-export default function MeetingNotes() {
-  const [project, setProject] = useState('')
-  const [subject, setSubject] = useState('')
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
-  const [location, setLocation] = useState('')
-  const [nextMeeting, setNextMeeting] = useState('')
-  const [attendees, setAttendees] = useState<Attendee[]>([
-    { id: crypto.randomUUID(), name: '', role: '' },
-  ])
-  const [agenda, setAgenda] = useState<AgendaItem[]>([
-    { id: crypto.randomUUID(), topic: '', decision: '' },
-  ])
-  const [actions, setActions] = useState<ActionItem[]>([
-    { id: crypto.randomUUID(), task: '', owner: '', dueDate: '', done: false },
-  ])
+interface State {
+  project: string
+  subject: string
+  date: string
+  location: string
+  nextMeeting: string
+  attendees: Attendee[]
+  agenda: AgendaItem[]
+  actions: ActionItem[]
+}
+
+const DEFAULT: State = {
+  project: '',
+  subject: '',
+  date: new Date().toISOString().slice(0, 10),
+  location: '',
+  nextMeeting: '',
+  attendees: [{ id: crypto.randomUUID(), name: '', role: '' }],
+  agenda: [{ id: crypto.randomUUID(), topic: '', decision: '' }],
+  actions: [{ id: crypto.randomUUID(), task: '', owner: '', dueDate: '', done: false }],
+}
+
+export default function MeetingNotes({ projectId }: { projectId: string | null }) {
+  const { state, setState, loading, saving } = useToolState('meeting-notes', projectId, DEFAULT)
+  const { project, subject, date, location, nextMeeting, attendees, agenda, actions } = state
   const [copied, setCopied] = useState(false)
 
-  const addAttendee = () => setAttendees(a => [...a, { id: crypto.randomUUID(), name: '', role: '' }])
-  const removeAttendee = (id: string) => setAttendees(a => a.filter(x => x.id !== id))
+  const setField = (field: keyof State, value: string) =>
+    setState(s => ({ ...s, [field]: value }))
+
+  const addAttendee = () =>
+    setState(s => ({ ...s, attendees: [...s.attendees, { id: crypto.randomUUID(), name: '', role: '' }] }))
+  const removeAttendee = (id: string) =>
+    setState(s => ({ ...s, attendees: s.attendees.filter(x => x.id !== id) }))
   const updateAttendee = (id: string, field: keyof Attendee, v: string) =>
-    setAttendees(a => a.map(x => x.id === id ? { ...x, [field]: v } : x))
+    setState(s => ({ ...s, attendees: s.attendees.map(x => x.id === id ? { ...x, [field]: v } : x) }))
 
-  const addAgenda = () => setAgenda(a => [...a, { id: crypto.randomUUID(), topic: '', decision: '' }])
-  const removeAgenda = (id: string) => setAgenda(a => a.filter(x => x.id !== id))
+  const addAgenda = () =>
+    setState(s => ({ ...s, agenda: [...s.agenda, { id: crypto.randomUUID(), topic: '', decision: '' }] }))
+  const removeAgenda = (id: string) =>
+    setState(s => ({ ...s, agenda: s.agenda.filter(x => x.id !== id) }))
   const updateAgenda = (id: string, field: keyof AgendaItem, v: string) =>
-    setAgenda(a => a.map(x => x.id === id ? { ...x, [field]: v } : x))
+    setState(s => ({ ...s, agenda: s.agenda.map(x => x.id === id ? { ...x, [field]: v } : x) }))
 
-  const addAction = () => setActions(a => [...a, { id: crypto.randomUUID(), task: '', owner: '', dueDate: '', done: false }])
-  const removeAction = (id: string) => setActions(a => a.filter(x => x.id !== id))
+  const addAction = () =>
+    setState(s => ({ ...s, actions: [...s.actions, { id: crypto.randomUUID(), task: '', owner: '', dueDate: '', done: false }] }))
+  const removeAction = (id: string) =>
+    setState(s => ({ ...s, actions: s.actions.filter(x => x.id !== id) }))
   const updateAction = (id: string, field: keyof ActionItem, v: string | boolean) =>
-    setActions(a => a.map(x => x.id === id ? { ...x, [field]: v } : x))
+    setState(s => ({ ...s, actions: s.actions.map(x => x.id === id ? { ...x, [field]: v } : x) }))
 
   const generateText = () => {
     const lines: string[] = [
@@ -87,30 +107,31 @@ export default function MeetingNotes() {
     setTimeout(() => setCopied(false), 2000)
   }
 
+  if (loading) return <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>
+
   return (
     <div className="space-y-6" dir="rtl">
-      {/* Header info */}
+      {saving && <div className="text-xs text-slate-400 text-left">שומר...</div>}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {[
-          { label: 'פרויקט',   val: project,    set: setProject,    placeholder: 'שם הפרויקט' },
-          { label: 'נושא',     val: subject,    set: setSubject,    placeholder: 'נושא הישיבה' },
-          { label: 'מיקום',    val: location,   set: setLocation,   placeholder: 'כתובת / Zoom' },
-          { label: 'ישיבה הבאה', val: nextMeeting, set: setNextMeeting, placeholder: 'תאריך הישיבה הבאה' },
-        ].map(({ label, val, set, placeholder }) => (
-          <div key={label}>
+          { label: 'פרויקט',      field: 'project',     placeholder: 'שם הפרויקט',         val: project },
+          { label: 'נושא',        field: 'subject',     placeholder: 'נושא הישיבה',          val: subject },
+          { label: 'מיקום',       field: 'location',    placeholder: 'כתובת / Zoom',         val: location },
+          { label: 'ישיבה הבאה',  field: 'nextMeeting', placeholder: 'תאריך הישיבה הבאה',   val: nextMeeting },
+        ].map(({ label, field, placeholder, val }) => (
+          <div key={field}>
             <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
-            <input value={val} onChange={e => set(e.target.value)} placeholder={placeholder}
+            <input value={val} onChange={e => setField(field as keyof State, e.target.value)} placeholder={placeholder}
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
         ))}
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">תאריך</label>
-          <input type="date" value={date} onChange={e => setDate(e.target.value)}
+          <input type="date" value={date} onChange={e => setField('date', e.target.value)}
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
       </div>
 
-      {/* Attendees */}
       <div>
         <div className="flex items-center justify-between mb-2">
           <h3 className="font-semibold text-slate-700 text-sm">משתתפים</h3>
@@ -133,7 +154,6 @@ export default function MeetingNotes() {
         </div>
       </div>
 
-      {/* Agenda */}
       <div>
         <div className="flex items-center justify-between mb-2">
           <h3 className="font-semibold text-slate-700 text-sm">סדר יום ודיון</h3>
@@ -161,7 +181,6 @@ export default function MeetingNotes() {
         </div>
       </div>
 
-      {/* Actions */}
       <div>
         <div className="flex items-center justify-between mb-2">
           <h3 className="font-semibold text-slate-700 text-sm">משימות להמשך</h3>

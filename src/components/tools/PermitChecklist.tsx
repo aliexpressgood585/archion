@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useToolState } from '@/hooks/useToolState'
 
 interface DocItem {
   id: string
@@ -13,6 +14,10 @@ interface DocSection {
   id: string
   title: string
   items: DocItem[]
+}
+
+interface State {
+  sections: DocSection[]
 }
 
 function makeItem(label: string, mandatory = true): DocItem {
@@ -88,27 +93,33 @@ const INITIAL_SECTIONS: DocSection[] = [
   },
 ]
 
-export default function PermitChecklist() {
-  const [sections, setSections] = useState<DocSection[]>(INITIAL_SECTIONS)
+const DEFAULT: State = { sections: INITIAL_SECTIONS }
+
+export default function PermitChecklist({ projectId }: { projectId: string | null }) {
+  const { state, setState, loading, saving } = useToolState('permit-checklist', projectId, DEFAULT)
+  const { sections } = state
   const [showOnlyPending, setShowOnlyPending] = useState(false)
 
   const toggle = (sId: string, iId: string, field: 'checked' | 'submitted') =>
-    setSections(ss => ss.map(s => s.id === sId
-      ? { ...s, items: s.items.map(it => it.id === iId ? { ...it, [field]: !it[field] } : it) }
-      : s))
+    setState(s => ({ ...s, sections: s.sections.map(sec => sec.id === sId
+      ? { ...sec, items: sec.items.map(it => it.id === iId ? { ...it, [field]: !it[field] } : it) }
+      : sec) }))
+
   const setNotes = (sId: string, iId: string, notes: string) =>
-    setSections(ss => ss.map(s => s.id === sId
-      ? { ...s, items: s.items.map(it => it.id === iId ? { ...it, notes } : it) }
-      : s))
+    setState(s => ({ ...s, sections: s.sections.map(sec => sec.id === sId
+      ? { ...sec, items: sec.items.map(it => it.id === iId ? { ...it, notes } : it) }
+      : sec) }))
 
   const allItems = sections.flatMap(s => s.items)
   const mandatoryItems = allItems.filter(i => i.mandatory)
   const checkedMandatory = mandatoryItems.filter(i => i.checked).length
   const progress = mandatoryItems.length > 0 ? (checkedMandatory / mandatoryItems.length) * 100 : 0
 
+  if (loading) return <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>
+
   return (
     <div className="space-y-5" dir="rtl">
-      {/* Progress */}
+      {saving && <div className="text-xs text-slate-400 text-left">שומר...</div>}
       <div className="bg-slate-50 rounded-xl border border-slate-200 p-4">
         <div className="flex justify-between items-center mb-2">
           <span className="text-sm font-medium text-slate-700">שלמות מסמכים חובה</span>

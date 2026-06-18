@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
+import { useToolState } from '@/hooks/useToolState'
 
 type COStatus = 'pending' | 'approved' | 'rejected' | 'on_hold'
 
@@ -17,6 +18,11 @@ interface ChangeOrder {
   notes: string
 }
 
+interface State {
+  orders: ChangeOrder[]
+  contractValue: string
+}
+
 const STATUS_META: Record<COStatus, { label: string; color: string }> = {
   pending:   { label: 'ממתין לאישור', color: 'bg-amber-100 text-amber-700' },
   approved:  { label: 'אושר',         color: 'bg-green-100 text-green-700' },
@@ -24,65 +30,51 @@ const STATUS_META: Record<COStatus, { label: string; color: string }> = {
   on_hold:   { label: 'בהקפאה',       color: 'bg-slate-100 text-slate-600' },
 }
 
-let coCounter = 1
-
-function newCO(): ChangeOrder {
-  return {
-    id: crypto.randomUUID(),
-    num: coCounter++,
-    date: new Date().toISOString().slice(0, 10),
-    description: '',
-    initiator: '',
-    reason: '',
-    costImpact: '',
-    costType: 'add',
-    scheduleDays: '',
-    status: 'pending',
-    notes: '',
-  }
+const DEFAULT: State = {
+  orders: [{ id: crypto.randomUUID(), num: 1, date: new Date().toISOString().slice(0, 10), description: '', initiator: '', reason: '', costImpact: '', costType: 'add', scheduleDays: '', status: 'pending', notes: '' }],
+  contractValue: '',
 }
 
-export default function ChangeOrderLog() {
-  const [cos, setCos] = useState<ChangeOrder[]>([newCO()])
-  const [contractValue, setContractValue] = useState('')
+export default function ChangeOrderLog({ projectId }: { projectId: string | null }) {
+  const { state, setState, loading, saving } = useToolState('change-order-log', projectId, DEFAULT)
+  const { orders: cos, contractValue } = state
   const [expanded, setExpanded] = useState<string | null>(null)
 
+  const nextNum = () => (cos.length > 0 ? Math.max(...cos.map(c => c.num)) : 0) + 1
+
   const add = () => {
-    const co = newCO()
-    setCos(cs => [...cs, co])
-    setExpanded(co.id)
+    const id = crypto.randomUUID()
+    setState(s => ({ ...s, orders: [...s.orders, { id, num: nextNum(), date: new Date().toISOString().slice(0, 10), description: '', initiator: '', reason: '', costImpact: '', costType: 'add', scheduleDays: '', status: 'pending', notes: '' }] }))
+    setExpanded(id)
   }
-  const remove = (id: string) => setCos(cs => cs.filter(x => x.id !== id))
+  const remove = (id: string) => setState(s => ({ ...s, orders: s.orders.filter(x => x.id !== id) }))
   const update = (id: string, field: keyof ChangeOrder, value: string) =>
-    setCos(cs => cs.map(c => c.id === id ? { ...c, [field]: value } : c))
+    setState(s => ({ ...s, orders: s.orders.map(c => c.id === id ? { ...c, [field]: value } : c) }))
 
   const contract = parseFloat(contractValue.replace(/,/g, '')) || 0
 
-  const netCostImpact = cos
-    .filter(c => c.status === 'approved')
-    .reduce((sum, c) => {
-      const v = parseFloat(c.costImpact) || 0
-      return sum + (c.costType === 'add' ? v : c.costType === 'deduct' ? -v : 0)
-    }, 0)
+  const netCostImpact = cos.filter(c => c.status === 'approved').reduce((sum, c) => {
+    const v = parseFloat(c.costImpact) || 0
+    return sum + (c.costType === 'add' ? v : c.costType === 'deduct' ? -v : 0)
+  }, 0)
 
-  const totalScheduleImpact = cos
-    .filter(c => c.status === 'approved')
-    .reduce((sum, c) => sum + (parseFloat(c.scheduleDays) || 0), 0)
-
+  const totalScheduleImpact = cos.filter(c => c.status === 'approved').reduce((sum, c) => sum + (parseFloat(c.scheduleDays) || 0), 0)
   const revisedContract = contract + netCostImpact
   const fmt = (n: number) => n !== 0 ? `₪${Math.round(Math.abs(n)).toLocaleString('he-IL')}` : '—'
 
+  if (loading) return <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>
+
   return (
     <div className="space-y-5" dir="rtl">
+      {saving && <div className="text-xs text-slate-400 text-left">שומר...</div>}
       <div className="flex items-center gap-4 flex-wrap">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">שווי חוזה מקורי (₪)</label>
-          <input type="text" value={contractValue} onChange={e => setContractValue(e.target.value)} placeholder="5,000,000"
+          <input type="text" value={contractValue} onChange={e => setState(s => ({ ...s, contractValue: e.target.value }))} placeholder="5,000,000"
             className="w-48 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
       </div>
 
-      {/* Summary bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-slate-50 rounded-xl p-3 text-center border border-slate-200">
           <div className="text-xl font-bold text-slate-700">{cos.length}</div>
@@ -104,14 +96,11 @@ export default function ChangeOrderLog() {
         </div>
       </div>
 
-      {/* CO List */}
       <div className="space-y-2">
         {cos.map(co => (
           <div key={co.id} className="border border-slate-200 rounded-xl overflow-hidden">
-            <div
-              className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-slate-50 transition-colors"
-              onClick={() => setExpanded(expanded === co.id ? null : co.id)}
-            >
+            <div className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-slate-50 transition-colors"
+              onClick={() => setExpanded(expanded === co.id ? null : co.id)}>
               <span className="text-xs font-bold text-slate-400 w-12 shrink-0">CO-{co.num}</span>
               <div className="flex-1 min-w-0">
                 <div className="font-medium text-slate-800 truncate">{co.description || '(ללא תיאור)'}</div>
