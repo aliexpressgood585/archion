@@ -10,7 +10,7 @@ export const Route = createFileRoute('/_authenticated/projects/')({
   component: ProjectsPage,
 })
 
-type ProjectWithClient = Project & { clients: Pick<Client, 'name'> | null }
+type ProjectWithClient = Project & { clients: Pick<Client, 'name'> | null; invoiced_amount?: number }
 
 const STATUS_LABELS: Record<Project['status'], string> = {
   planning: 'תכנון',
@@ -72,7 +72,20 @@ function ProjectsPage() {
       .select('*, clients(name)')
       .eq('organization_id', orgId)
       .order('created_at', { ascending: false })
-    setProjects(((data as unknown) as ProjectWithClient[]) ?? [])
+    const rawProjects = ((data as unknown) as ProjectWithClient[]) ?? []
+    // Fetch invoiced amounts in parallel for each project
+    const projectsWithInvoiced = await Promise.all(
+      rawProjects.map(async project => {
+        const { data: invData } = await supabase
+          .from('invoices')
+          .select('total')
+          .eq('project_id', project.id)
+          .neq('status', 'cancelled')
+        const invoiced_amount = (invData ?? []).reduce((sum, row) => sum + (row.total ?? 0), 0)
+        return { ...project, invoiced_amount }
+      })
+    )
+    setProjects(projectsWithInvoiced)
   }
 
   useEffect(() => {
@@ -198,8 +211,17 @@ function ProjectsPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map(project => {
+            const invoicedAmount = project.invoiced_amount ?? 0
             const spentPercent =
-              project.budget && project.budget > 0 ? 0 : 0 // placeholder – no spent data at list level
+              project.budget && project.budget > 0
+                ? Math.min((invoicedAmount / project.budget) * 100, 100)
+                : 0
+            const barColor =
+              spentPercent >= 90
+                ? 'bg-red-500'
+                : spentPercent >= 70
+                ? 'bg-orange-500'
+                : 'bg-blue-500'
             return (
               <div
                 key={project.id}
@@ -221,7 +243,7 @@ function ProjectsPage() {
                 {project.clients?.name && (
                   <p className="text-sm text-slate-500 mb-3">{project.clients.name}</p>
                 )}
-                {project.budget && (
+                {project.budget && project.budget > 0 && (
                   <div className="mb-3">
                     <div className="flex justify-between text-xs text-slate-500 mb-1">
                       <span>תקציב</span>
@@ -229,10 +251,13 @@ function ProjectsPage() {
                     </div>
                     <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-blue-500 rounded-full transition-all"
-                        style={{ width: `${Math.min(spentPercent, 100)}%` }}
+                        className={`h-full rounded-full transition-all ${barColor}`}
+                        style={{ width: `${spentPercent}%` }}
                       />
                     </div>
+                    <p className="text-xs text-slate-400 mt-1">
+                      {formatCurrency(invoicedAmount)} מתוך {formatCurrency(project.budget, project.budget_currency)}
+                    </p>
                   </div>
                 )}
                 <div className="flex justify-between text-xs text-slate-400">

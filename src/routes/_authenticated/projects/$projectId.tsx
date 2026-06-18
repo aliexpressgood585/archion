@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/integrations/supabase/client'
 import { useAuth } from '@/lib/auth-context'
@@ -6,6 +6,7 @@ import { formatCurrency, formatDate } from '@/lib/utils'
 import {
   ArrowRight, Building2, Calendar, DollarSign, FileText,
   MessageSquare, CheckSquare, Plus, X, Upload, Paperclip, Zap, Images, Package, Users,
+  Layers, Layout, BarChart2, Box, Table2,
 } from 'lucide-react'
 import type { Project, Client, Task, Invoice, Document, Comment } from '@/integrations/supabase/types'
 import { ProjectDeliverables } from './_project-deliverables'
@@ -110,6 +111,7 @@ function TaskColumn({
 function ProjectDetailPage() {
   const { projectId } = Route.useParams()
   const { profile } = useAuth()
+  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [project, setProject] = useState<(Project & { clients: Client | null }) | null>(null)
   const [tasks, setTasks] = useState<Task[]>([])
@@ -127,6 +129,11 @@ function ProjectDetailPage() {
   const [savingTask, setSavingTask] = useState(false)
 
   const orgId = profile?.organization_id
+
+  const fetchTasks = async () => {
+    const { data } = await supabase.from('tasks').select('*').eq('project_id', projectId).order('sort_order')
+    setTasks((data as Task[]) ?? [])
+  }
 
   useEffect(() => {
     if (!orgId || !projectId) return
@@ -148,6 +155,21 @@ function ProjectDetailPage() {
     }
     fetchAll()
   }, [orgId, projectId])
+
+  // Realtime subscription to tasks for this project
+  useEffect(() => {
+    if (!projectId) return
+    const channel = supabase
+      .channel(`project-tasks-${projectId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tasks', filter: `project_id=eq.${projectId}` },
+        () => { fetchTasks() }
+      )
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId])
 
   const handleAddComment = async () => {
     if (!newComment.trim() || !profile || !orgId) return
@@ -261,6 +283,28 @@ function ProjectDetailPage() {
       {activeTab === 'overview' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-5">
+            {/* Quick Tools */}
+            <div className="bg-white rounded-2xl border border-slate-100 p-5">
+              <h2 className="font-semibold text-slate-800 mb-4">כלים מהירים</h2>
+              <div className="flex flex-wrap gap-3">
+                {([
+                  { label: 'תוכנית קומה', icon: Layers, toolId: 'revit' },
+                  { label: 'עורך חתך', icon: Layout, toolId: 'autocad' },
+                  { label: 'גאנט', icon: BarChart2, toolId: 'project' },
+                  { label: 'מציג 3D', icon: Box, toolId: 'rhino' },
+                  { label: 'גיליון', icon: Table2, toolId: 'excel' },
+                ] as const).map(({ label, icon: Icon, toolId }) => (
+                  <button
+                    key={toolId}
+                    onClick={() => navigate({ to: '/tools/$toolId', params: { toolId } })}
+                    className="flex flex-col items-center gap-1.5 px-4 py-3 rounded-xl border border-slate-200 hover:border-blue-400 hover:bg-blue-50 transition group"
+                  >
+                    <Icon className="w-5 h-5 text-slate-500 group-hover:text-blue-600 transition" />
+                    <span className="text-xs text-slate-600 group-hover:text-blue-700 transition">{label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="bg-white rounded-2xl border border-slate-100 p-5">
               <h2 className="font-semibold text-slate-800 mb-4">פרטי הפרויקט</h2>
               <dl className="space-y-3">

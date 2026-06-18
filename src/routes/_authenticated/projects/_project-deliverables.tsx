@@ -4,8 +4,14 @@ import { useAuth } from '@/lib/auth-context'
 import { formatDate } from '@/lib/utils'
 import {
   Plus, Upload, CheckCircle, Clock, AlertCircle,
-  FileCode2, Palette, Zap, Eye, Download, X, ThumbsUp, ThumbsDown
+  FileCode2, Palette, Zap, Eye, Download, X, ThumbsUp, ThumbsDown, ChevronDown, ChevronUp,
 } from 'lucide-react'
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
 import type { Deliverable, DeliverableFile, ArchitectureTool, DeliverableApprovalStatus } from '@/integrations/supabase/types'
 import { FileViewer } from '@/components/viewers/FileViewer'
 
@@ -100,6 +106,7 @@ export function ProjectDeliverables({ projectId }: { projectId: string }) {
   const [viewingFile, setViewingFile] = useState<DeliverableFile | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [approvingId, setApprovingId] = useState<string | null>(null)
+  const [expandedHistory, setExpandedHistory] = useState<Set<string>>(new Set())
 
   const isManager = profile?.role === 'owner' || profile?.role === 'admin'
 
@@ -291,43 +298,79 @@ export function ProjectDeliverables({ projectId }: { projectId: string }) {
                 {/* Files Section */}
                 {selectedDel === del.id && (
                   <div className="mt-4 pt-4 border-t border-slate-200 space-y-3">
-                    {del.files?.length > 0 ? (
-                      <div className="space-y-2">
-                        {del.files.map(file => (
-                          <div key={file.id} className="flex items-center gap-2 p-2 rounded bg-slate-50 hover:bg-slate-100 transition">
-                            <Palette className="w-4 h-4 text-slate-400 shrink-0" />
+                    {del.files?.length > 0 ? (() => {
+                      const sorted = [...del.files].sort((a, b) => b.version_number - a.version_number)
+                      const current = sorted[0]
+                      const history = sorted.slice(1)
+                      const isExpanded = expandedHistory.has(del.id)
+                      const toggleHistory = (e: React.MouseEvent) => {
+                        e.stopPropagation()
+                        setExpandedHistory(prev => {
+                          const next = new Set(prev)
+                          if (next.has(del.id)) next.delete(del.id)
+                          else next.add(del.id)
+                          return next
+                        })
+                      }
+                      const FileRow = ({ file, isCurrent }: { file: DeliverableFile; isCurrent: boolean }) => (
+                        <div className={`flex items-center gap-2 p-2 rounded transition ${isCurrent ? 'bg-blue-50 border border-blue-100' : 'bg-slate-50 hover:bg-slate-100'}`}>
+                          <Palette className="w-4 h-4 text-slate-400 shrink-0" />
+                          <button
+                            className="flex-1 min-w-0 text-right"
+                            onClick={(e) => { e.stopPropagation(); setViewingFile(file) }}
+                          >
+                            <p className={`text-xs font-medium truncate hover:text-blue-600 ${isCurrent ? 'text-blue-700' : 'text-slate-700'}`}>
+                              {file.file_name}
+                              {isCurrent && <span className="mr-1 text-blue-400 font-normal">(נוכחי)</span>}
+                            </p>
+                            <p className="text-xs text-slate-400">
+                              v{file.version_number} • {formatDate(file.created_at)}
+                              {file.file_size ? ` • ${formatFileSize(file.file_size)}` : ''}
+                            </p>
+                          </button>
+                          <div className="flex items-center gap-1 shrink-0">
                             <button
-                              className="flex-1 min-w-0 text-right"
                               onClick={(e) => { e.stopPropagation(); setViewingFile(file) }}
+                              className="p-1 rounded hover:bg-slate-200 transition"
+                              title="צפה"
                             >
-                              <p className="text-xs font-medium text-slate-700 truncate hover:text-blue-600">
-                                {file.file_name}
-                              </p>
-                              <p className="text-xs text-slate-400">
-                                v{file.version_number} • {formatDate(file.created_at)}
-                              </p>
+                              <Eye className="w-3.5 h-3.5 text-blue-500" />
                             </button>
-                            <div className="flex items-center gap-1 shrink-0">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setViewingFile(file) }}
-                                className="p-1 rounded hover:bg-slate-200 transition"
-                                title="צפה"
-                              >
-                                <Eye className="w-3.5 h-3.5 text-blue-500" />
-                              </button>
-                              <a
-                                href={getPublicUrl(file.file_path)}
-                                download
-                                onClick={e => e.stopPropagation()}
-                                className="p-1 rounded hover:bg-slate-200 transition"
-                              >
-                                <Download className="w-3.5 h-3.5 text-slate-500" />
-                              </a>
-                            </div>
+                            <a
+                              href={getPublicUrl(file.file_path)}
+                              download
+                              onClick={e => e.stopPropagation()}
+                              className="p-1 rounded hover:bg-slate-200 transition"
+                            >
+                              <Download className="w-3.5 h-3.5 text-slate-500" />
+                            </a>
                           </div>
-                        ))}
-                      </div>
-                    ) : (
+                        </div>
+                      )
+                      return (
+                        <div className="space-y-2">
+                          <FileRow file={current} isCurrent={true} />
+                          {history.length > 0 && (
+                            <div>
+                              <button
+                                onClick={toggleHistory}
+                                className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 transition mb-1"
+                              >
+                                {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                                גרסאות קודמות ({history.length})
+                              </button>
+                              {isExpanded && (
+                                <div className="space-y-1 pr-2 border-r border-slate-200">
+                                  {history.map(file => (
+                                    <FileRow key={file.id} file={file} isCurrent={false} />
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })() : (
                       <p className="text-xs text-slate-400">אין קבצים</p>
                     )}
 

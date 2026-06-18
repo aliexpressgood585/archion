@@ -56,8 +56,6 @@ function PortalPage() {
     author_id: string
   }[]>([])
 
-  // For this portal, we treat any logged-in user with role 'viewer' as a portal client
-  // In a real app, you'd have a dedicated 'client' role
   const clientName = profile?.full_name ?? 'לקוח'
 
   useEffect(() => {
@@ -162,7 +160,6 @@ function PortalPage() {
   ]
 
   // Show "clients only" message if the logged-in user is an architect/admin
-  // (In a real app: profile.role === 'client')
   if (profile && (profile.role === 'owner' || profile.role === 'admin')) {
     return (
       <div className="p-6 max-w-2xl mx-auto" dir="rtl">

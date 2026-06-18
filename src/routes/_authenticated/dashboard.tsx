@@ -1,9 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/integrations/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { FolderOpen, CheckSquare, DollarSign, Clock, TrendingUp, AlertCircle } from 'lucide-react'
+import { FolderOpen, CheckSquare, DollarSign, Clock, TrendingUp, AlertCircle, BarChart2 } from 'lucide-react'
 import type { Project, Task, Invoice } from '@/integrations/supabase/types'
 
 export const Route = createFileRoute('/_authenticated/dashboard')({
@@ -33,6 +33,14 @@ const STATUS_COLORS: Record<Project['status'], string> = {
   cancelled: 'bg-red-100 text-red-800',
 }
 
+const STATUS_BAR_COLORS: Record<Project['status'], string> = {
+  planning: 'bg-yellow-400',
+  active: 'bg-green-500',
+  on_hold: 'bg-orange-400',
+  completed: 'bg-blue-500',
+  cancelled: 'bg-red-400',
+}
+
 const PRIORITY_LABELS: Record<Task['priority'], string> = {
   low: 'נמוכה',
   medium: 'בינונית',
@@ -45,6 +53,21 @@ const PRIORITY_COLORS: Record<Task['priority'], string> = {
   medium: 'bg-blue-100 text-blue-700',
   high: 'bg-orange-100 text-orange-700',
   urgent: 'bg-red-100 text-red-700',
+}
+
+const HEBREW_MONTHS = ['ינו', 'פבר', 'מרץ', 'אפר', 'מאי', 'יונ', 'יול', 'אוג', 'ספט', 'אוק', 'נוב', 'דצמ']
+
+interface MonthRevenue {
+  label: string
+  total: number
+  year: number
+  month: number
+}
+
+interface TopClient {
+  clientId: string
+  clientName: string
+  total: number
 }
 
 function StatCard({
@@ -80,6 +103,60 @@ function StatCard({
   )
 }
 
+function RevenueChart({ data, loading }: { data: MonthRevenue[]; loading: boolean }) {
+  if (loading) {
+    return <div className="h-48 bg-slate-50 rounded-xl animate-pulse" />
+  }
+  const maxVal = Math.max(...data.map(d => d.total), 1)
+  const W = 400
+  const H = 180
+  const barW = 44
+  const gap = (W - data.length * barW) / (data.length + 1)
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H + 30}`} className="w-full" aria-label="תרשים הכנסות">
+      {data.map((d, i) => {
+        const x = gap + i * (barW + gap)
+        const barH = maxVal > 0 ? Math.max((d.total / maxVal) * H, 2) : 2
+        const y = H - barH
+        const isZero = d.total === 0
+        return (
+          <g key={`${d.year}-${d.month}`}>
+            <rect
+              x={x}
+              y={y}
+              width={barW}
+              height={barH}
+              rx={4}
+              className={isZero ? 'fill-slate-100' : 'fill-blue-500'}
+            />
+            {!isZero && (
+              <text
+                x={x + barW / 2}
+                y={y - 4}
+                textAnchor="middle"
+                fontSize={9}
+                className="fill-slate-500"
+              >
+                {d.total >= 1000 ? `${Math.round(d.total / 1000)}k` : d.total}
+              </text>
+            )}
+            <text
+              x={x + barW / 2}
+              y={H + 16}
+              textAnchor="middle"
+              fontSize={10}
+              className="fill-slate-400"
+            >
+              {d.label}
+            </text>
+          </g>
+        )
+      })}
+    </svg>
+  )
+}
+
 function DashboardPage() {
   const { profile } = useAuth()
   const [stats, setStats] = useState<DashboardStats>({
@@ -92,76 +169,174 @@ function DashboardPage() {
   const [upcomingTasks, setUpcomingTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
 
+  // Analytics state
+  const [monthlyRevenue, setMonthlyRevenue] = useState<MonthRevenue[]>([])
+  const [projectsByStatus, setProjectsByStatus] = useState<{ status: Project['status']; count: number }[]>([])
+  const [topClients, setTopClients] = useState<TopClient[]>([])
+  const [analyticsLoading, setAnalyticsLoading] = useState(true)
+
+  const fetchData = useCallback(async () => {
+    if (!profile?.organization_id) return
+    const orgId = profile.organization_id
+    try {
+      const [projectsRes, tasksRes, invoicesRes] = await Promise.all([
+        supabase
+          .from('projects')
+          .select('*')
+          .eq('organization_id', orgId)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('tasks')
+          .select('*')
+          .eq('organization_id', orgId)
+          .neq('status', 'done')
+          .neq('status', 'cancelled')
+          .not('due_date', 'is', null)
+          .order('due_date', { ascending: true }),
+        supabase
+          .from('invoices')
+          .select('*')
+          .eq('organization_id', orgId),
+      ])
+
+      const projects: Project[] = projectsRes.data ?? []
+      const tasks: Task[] = tasksRes.data ?? []
+      const invoices: Invoice[] = invoicesRes.data ?? []
+
+      const sevenDaysFromNow = new Date()
+      sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7)
+      const now = new Date()
+
+      const upcoming = tasks.filter(t => {
+        if (!t.due_date) return false
+        const due = new Date(t.due_date)
+        return due >= now && due <= sevenDaysFromNow
+      })
+
+      const totalRevenue = invoices
+        .filter(i => i.status === 'paid')
+        .reduce((sum, i) => sum + (i.total ?? 0), 0)
+
+      const pendingPayments = invoices
+        .filter(i => i.status === 'sent' || i.status === 'overdue')
+        .reduce((sum, i) => sum + (i.total ?? 0), 0)
+
+      setStats({
+        totalProjects: projects.length,
+        activeTasks: tasks.length,
+        totalRevenue,
+        pendingPayments,
+      })
+      setRecentProjects(projects.slice(0, 5))
+      setUpcomingTasks(upcoming.slice(0, 8))
+    } catch (err) {
+      console.error('Dashboard fetch error:', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [profile?.organization_id])
+
+  const fetchAnalytics = useCallback(async () => {
+    if (!profile?.organization_id) return
+    const orgId = profile.organization_id
+    setAnalyticsLoading(true)
+    try {
+      // Last 6 months revenue
+      const now = new Date()
+      const months: MonthRevenue[] = []
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+        months.push({ label: HEBREW_MONTHS[d.getMonth()], total: 0, year: d.getFullYear(), month: d.getMonth() })
+      }
+
+      const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1)
+      const [{ data: paidInvoices }, { data: clientsData }] = await Promise.all([
+        supabase
+          .from('invoices')
+          .select('total, issue_date, client_id')
+          .eq('organization_id', orgId)
+          .eq('status', 'paid')
+          .gte('issue_date', sixMonthsAgo.toISOString().slice(0, 10)),
+        supabase
+          .from('clients')
+          .select('id, name')
+          .eq('organization_id', orgId),
+      ])
+
+      const clientNameMap = new Map<string, string>(
+        (clientsData ?? []).map(c => [c.id, c.name])
+      )
+
+      const invoiceData = (paidInvoices ?? []) as { total: number; issue_date: string; client_id: string | null }[]
+
+      invoiceData.forEach(inv => {
+        if (!inv.issue_date) return
+        const d = new Date(inv.issue_date)
+        const m = months.find(mo => mo.year === d.getFullYear() && mo.month === d.getMonth())
+        if (m) m.total += inv.total ?? 0
+      })
+      setMonthlyRevenue(months)
+
+      // Projects by status
+      const { data: allProjects } = await supabase
+        .from('projects')
+        .select('status')
+        .eq('organization_id', orgId)
+      const statusCounts: Partial<Record<Project['status'], number>> = {}
+      ;(allProjects ?? []).forEach((p: { status: Project['status'] }) => {
+        statusCounts[p.status] = (statusCounts[p.status] ?? 0) + 1
+      })
+      const statusList = (Object.entries(statusCounts) as [Project['status'], number][])
+        .map(([status, count]) => ({ status, count }))
+        .sort((a, b) => b.count - a.count)
+      setProjectsByStatus(statusList)
+
+      // Top 3 clients by revenue
+      const clientMap = new Map<string, { name: string; total: number }>()
+      invoiceData.forEach(inv => {
+        if (!inv.client_id) return
+        const name = clientNameMap.get(inv.client_id) ?? inv.client_id
+        const existing = clientMap.get(inv.client_id) ?? { name, total: 0 }
+        existing.total += inv.total ?? 0
+        clientMap.set(inv.client_id, existing)
+      })
+      const top3 = Array.from(clientMap.entries())
+        .map(([clientId, { name, total }]) => ({ clientId, clientName: name, total }))
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 3)
+      setTopClients(top3)
+    } catch (err) {
+      console.error('Analytics fetch error:', err)
+    } finally {
+      setAnalyticsLoading(false)
+    }
+  }, [profile?.organization_id])
+
   useEffect(() => {
     if (!profile?.organization_id) return
-
-    const orgId = profile.organization_id
-
-    async function fetchData() {
-      try {
-        const [projectsRes, tasksRes, invoicesRes] = await Promise.all([
-          supabase
-            .from('projects')
-            .select('*')
-            .eq('organization_id', orgId)
-            .order('created_at', { ascending: false }),
-          supabase
-            .from('tasks')
-            .select('*')
-            .eq('organization_id', orgId)
-            .neq('status', 'done')
-            .neq('status', 'cancelled')
-            .not('due_date', 'is', null)
-            .order('due_date', { ascending: true }),
-          supabase
-            .from('invoices')
-            .select('*')
-            .eq('organization_id', orgId),
-        ])
-
-        const projects: Project[] = projectsRes.data ?? []
-        const tasks: Task[] = tasksRes.data ?? []
-        const invoices: Invoice[] = invoicesRes.data ?? []
-
-        const sevenDaysFromNow = new Date()
-        sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7)
-        const now = new Date()
-
-        const upcoming = tasks.filter(t => {
-          if (!t.due_date) return false
-          const due = new Date(t.due_date)
-          return due >= now && due <= sevenDaysFromNow
-        })
-
-        const totalRevenue = invoices
-          .filter(i => i.status === 'paid')
-          .reduce((sum, i) => sum + (i.total ?? 0), 0)
-
-        const pendingPayments = invoices
-          .filter(i => i.status === 'sent' || i.status === 'overdue')
-          .reduce((sum, i) => sum + (i.total ?? 0), 0)
-
-        setStats({
-          totalProjects: projects.length,
-          activeTasks: tasks.length,
-          totalRevenue,
-          pendingPayments,
-        })
-        setRecentProjects(projects.slice(0, 5))
-        setUpcomingTasks(upcoming.slice(0, 8))
-      } catch (err) {
-        console.error('Dashboard fetch error:', err)
-      } finally {
-        setLoading(false)
-      }
-    }
-
     fetchData()
-  }, [profile?.organization_id])
+    fetchAnalytics()
+  }, [profile?.organization_id, fetchData, fetchAnalytics])
+
+  // Realtime subscription
+  useEffect(() => {
+    if (!profile?.organization_id) return
+    const channel = supabase
+      .channel('dashboard-rt')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tasks', filter: `organization_id=eq.${profile.organization_id}` },
+        () => { fetchData() }
+      )
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [profile?.organization_id, fetchData])
 
   const greeting = profile?.full_name
     ? `שלום, ${profile.full_name.split(' ')[0]}`
     : 'שלום'
+
+  const maxStatusCount = Math.max(...projectsByStatus.map(s => s.count), 1)
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-8" dir="rtl">
@@ -290,6 +465,93 @@ function DashboardPage() {
               ))}
             </ul>
           )}
+        </div>
+      </div>
+
+      {/* Analytics Section */}
+      <div>
+        <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+          <BarChart2 className="w-5 h-5 text-blue-500" />
+          ניתוח נתונים
+        </h2>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Revenue Chart */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 lg:col-span-1">
+            <h3 className="text-sm font-semibold text-slate-700 mb-4">הכנסות — 6 חודשים אחרונים</h3>
+            {analyticsLoading ? (
+              <div className="h-48 bg-slate-50 rounded-xl animate-pulse" />
+            ) : (
+              <>
+                <RevenueChart data={monthlyRevenue} loading={analyticsLoading} />
+                <p className="text-xs text-slate-400 text-center mt-1">
+                  סה״כ: {formatCurrency(monthlyRevenue.reduce((s, m) => s + m.total, 0))}
+                </p>
+              </>
+            )}
+          </div>
+
+          {/* Projects by Status */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+            <h3 className="text-sm font-semibold text-slate-700 mb-4">פרויקטים לפי סטטוס</h3>
+            {analyticsLoading ? (
+              <div className="space-y-3">
+                {[...Array(4)].map((_, i) => <div key={i} className="h-8 bg-slate-50 rounded animate-pulse" />)}
+              </div>
+            ) : projectsByStatus.length === 0 ? (
+              <p className="text-slate-400 text-sm text-center py-6">אין נתונים</p>
+            ) : (
+              <div className="space-y-3">
+                {projectsByStatus.map(({ status, count }) => (
+                  <div key={status}>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className={`px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[status]}`}>
+                        {STATUS_LABELS[status]}
+                      </span>
+                      <span className="text-slate-500 font-medium">{count}</span>
+                    </div>
+                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${STATUS_BAR_COLORS[status]}`}
+                        style={{ width: `${(count / maxStatusCount) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Top Clients */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+            <h3 className="text-sm font-semibold text-slate-700 mb-4">לקוחות מובילים (לפי הכנסה)</h3>
+            {analyticsLoading ? (
+              <div className="space-y-3">
+                {[...Array(3)].map((_, i) => <div key={i} className="h-12 bg-slate-50 rounded animate-pulse" />)}
+              </div>
+            ) : topClients.length === 0 ? (
+              <p className="text-slate-400 text-sm text-center py-6">אין נתונים</p>
+            ) : (
+              <ol className="space-y-3">
+                {topClients.map((client, idx) => (
+                  <li key={client.clientId} className="flex items-center gap-3">
+                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                      idx === 0 ? 'bg-yellow-100 text-yellow-700' :
+                      idx === 1 ? 'bg-slate-100 text-slate-600' :
+                      'bg-orange-50 text-orange-600'
+                    }`}>
+                      {idx + 1}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-700 truncate">{client.clientName}</p>
+                    </div>
+                    <span className="text-sm font-semibold text-green-600 shrink-0">
+                      {formatCurrency(client.total)}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
         </div>
       </div>
     </div>
