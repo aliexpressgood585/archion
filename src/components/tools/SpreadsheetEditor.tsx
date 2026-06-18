@@ -1,5 +1,6 @@
 import { useRef, useState, useCallback, useEffect } from 'react'
-import { Download, Upload, Plus, Boxes } from 'lucide-react'
+import { Download, Upload, Plus, Boxes, FileSpreadsheet } from 'lucide-react'
+import * as XLSX from 'xlsx'
 
 const INIT_COLS = 26
 const INIT_ROWS = 50
@@ -135,6 +136,7 @@ export function SpreadsheetEditor() {
   const inputRef = useRef<HTMLInputElement>(null)
   const tableRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const xlsxInputRef = useRef<HTMLInputElement>(null)
 
   const selId = cellId(selection.row, selection.col)
   const selCell = cells[selId]
@@ -362,6 +364,46 @@ export function SpreadsheetEditor() {
     setSelection({ row: 0, col: 0 })
   }
 
+  function exportXlsx() {
+    const rows: string[][] = []
+    let lastRow = 0
+    for (let r = 0; r < numRows; r++)
+      for (let c = 0; c < numCols; c++)
+        if (displayValue(cells, r, c)) lastRow = r
+    for (let r = 0; r <= lastRow; r++) {
+      const row: string[] = []
+      for (let c = 0; c < numCols; c++)
+        row.push(displayValue(cells, r, c))
+      rows.push(row)
+    }
+    const ws = XLSX.utils.aoa_to_sheet(rows)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'גיליון 1')
+    XLSX.writeFile(wb, 'spreadsheet.xlsx')
+  }
+
+  function importXlsx(file: File) {
+    const reader = new FileReader()
+    reader.onload = e => {
+      const data = new Uint8Array(e.target?.result as ArrayBuffer)
+      const wb = XLSX.read(data, { type: 'array' })
+      const ws = wb.Sheets[wb.SheetNames[0]]
+      const rows: string[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' }) as string[][]
+      const newCells: Cells = {}
+      rows.forEach((row, r) => {
+        row.forEach((val, c) => {
+          if (val !== '' && val != null) newCells[cellId(r, c)] = { value: String(val) }
+        })
+      })
+      setCells(newCells)
+      setNumRows(Math.max(numRows, rows.length + 5))
+      const maxCols = Math.max(...rows.map(r => r.length), numCols)
+      setNumCols(maxCols)
+      setColWidths(Array(maxCols).fill(DEFAULT_COL_W))
+    }
+    reader.readAsArrayBuffer(file)
+  }
+
   function onColResizeStart(e: React.MouseEvent, colIdx: number) {
     e.preventDefault()
     setResizingCol(colIdx)
@@ -432,11 +474,21 @@ export function SpreadsheetEditor() {
         <button
           onClick={() => fileInputRef.current?.click()}
           className="flex items-center gap-1 px-2 py-1 text-slate-300 hover:bg-slate-700 rounded text-xs transition"
+          title="ייבא CSV"
         >
           <Upload className="w-3 h-3" />
           CSV
         </button>
+        <button
+          onClick={() => xlsxInputRef.current?.click()}
+          className="flex items-center gap-1 px-2 py-1 text-green-300 hover:bg-slate-700 rounded text-xs transition"
+          title="ייבא XLSX"
+        >
+          <FileSpreadsheet className="w-3 h-3" />
+          XLSX
+        </button>
         <input ref={fileInputRef} type="file" hidden accept=".csv" onChange={e => { const f = e.target.files?.[0]; if (f) importCsv(f); e.target.value = '' }} />
+        <input ref={xlsxInputRef} type="file" hidden accept=".xlsx,.xls" onChange={e => { const f = e.target.files?.[0]; if (f) importXlsx(f); e.target.value = '' }} />
 
         <button
           onClick={importBoq}
@@ -450,11 +502,18 @@ export function SpreadsheetEditor() {
         <div className="flex-1" />
 
         <button
+          onClick={exportXlsx}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-medium transition"
+        >
+          <FileSpreadsheet className="w-3.5 h-3.5" />
+          XLSX
+        </button>
+        <button
           onClick={exportCsv}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition"
         >
           <Download className="w-3.5 h-3.5" />
-          ייצוא CSV
+          CSV
         </button>
       </div>
 
