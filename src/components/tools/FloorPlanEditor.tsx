@@ -6,9 +6,16 @@ import {
 
 const SCALE = 40 // px per meter
 const SNAP = SCALE
-const WALL_T = 8  // wall thickness in px (= 20cm)
 const SVG_W = 1600
 const SVG_H = 1000
+
+// Wall thickness presets (px at SCALE=40: 10cm=4px, 20cm=8px, 30cm=12px, 40cm=16px)
+const WALL_PRESETS = [
+  { label: '10 ס"מ — מחיצה', px: 4 },
+  { label: '20 ס"מ — פנימי', px: 8 },
+  { label: '30 ס"מ — חיצוני', px: 12 },
+  { label: '40 ס"מ — נושא', px: 16 },
+] as const
 
 const TB_KEY = 'archion_titleblock'
 
@@ -47,6 +54,7 @@ interface Wall {
   kind: 'wall'
   id: string
   x1: number; y1: number; x2: number; y2: number
+  thickness: number
 }
 
 interface Door {
@@ -106,6 +114,8 @@ export function FloorPlanEditor() {
   const [tool, setTool] = useState<ToolType>('room')
   const [selected, setSelected] = useState<string | null>(null)
   const [selectedRoomType, setSelectedRoomType] = useState<RoomTypeKey>('living')
+  const [wallThickness, setWallThickness] = useState(8) // px default = 20cm
+  const [currentFloor, setCurrentFloor] = useState(0)  // floor index
 
   // Wall drawing
   const [wallAnchor, setWallAnchor] = useState<{ x: number; y: number } | null>(null)
@@ -326,7 +336,7 @@ export function FloorPlanEditor() {
     if (tool === 'wall' && wallAnchor && wallPreview) {
       const len = Math.sqrt((wallPreview.x2 - wallPreview.x1) ** 2 + (wallPreview.y2 - wallPreview.y1) ** 2)
       if (len >= SNAP) {
-        const el: Wall = { kind: 'wall', id: uid(), ...wallPreview }
+        const el: Wall = { kind: 'wall', id: uid(), thickness: wallThickness, ...wallPreview }
         pushHistory([...elements, el])
       }
       setWallAnchor(null)
@@ -506,7 +516,6 @@ export function FloorPlanEditor() {
 
   function exportDxf() {
     const S = SCALE
-    const T = WALL_T / 2 / S
 
     // Only define layers that actually have content
     const hasWalls  = elements.some(e => e.kind === 'wall')
@@ -545,7 +554,8 @@ export function FloorPlanEditor() {
         const dx = el.x2 - el.x1, dy = el.y2 - el.y1
         const len = Math.sqrt(dx * dx + dy * dy)
         if (len === 0) return
-        const nx = (-dy / len) * T, ny = (dx / len) * T
+        const halfT = (el.thickness ?? 8) / 2 / S
+        const nx = (-dy / len) * halfT, ny = (dx / len) * halfT
         const x1 = el.x1 / S, y1 = -el.y1 / S, x2 = el.x2 / S, y2 = -el.y2 / S
         line('WALLS', x1 + nx, y1 + ny, x2 + nx, y2 + ny)
         line('WALLS', x1 - nx, y1 - ny, x2 - nx, y2 - ny)
@@ -671,6 +681,13 @@ export function FloorPlanEditor() {
           {rooms.length} חדרים • {totalArea.toFixed(1)} מ"ר
         </span>
 
+        <select value={currentFloor} onChange={e => setCurrentFloor(Number(e.target.value))}
+          className="bg-slate-700 text-white text-xs rounded-lg px-2 py-1.5 border-0">
+          {['מרתף', 'קרקע', 'קומה 1', 'קומה 2', 'קומה 3', 'גג'].map((f, i) => (
+            <option key={i} value={i}>{f}</option>
+          ))}
+        </select>
+
         <button onClick={() => setShowTbModal(true)}
           title="הגדרות Title Block"
           className="p-2 rounded-lg text-slate-300 hover:bg-slate-700 transition">
@@ -697,6 +714,19 @@ export function FloorPlanEditor() {
           PNG
         </button>
       </div>
+
+      {/* Wall thickness + floor selector when wall tool active */}
+      {tool === 'wall' && (
+        <div className="flex flex-wrap items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+          <span className="text-xs text-slate-500 font-medium">עובי קיר:</span>
+          {WALL_PRESETS.map(p => (
+            <button key={p.px} onClick={() => setWallThickness(p.px)}
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition border ${wallThickness === p.px ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300'}`}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Room type selector when room tool active */}
       {tool === 'room' && (
@@ -815,8 +845,9 @@ export function FloorPlanEditor() {
               const dx = wall.x2 - wall.x1, dy = wall.y2 - wall.y1
               const len = Math.sqrt(dx * dx + dy * dy)
               if (len === 0) return null
-              const nx = (-dy / len) * WALL_T / 2
-              const ny = (dx / len) * WALL_T / 2
+              const wt = wall.thickness ?? 8
+              const nx = (-dy / len) * wt / 2
+              const ny = (dx / len) * wt / 2
               const pts = [
                 `${wall.x1 + nx},${wall.y1 + ny}`,
                 `${wall.x2 + nx},${wall.y2 + ny}`,
@@ -835,7 +866,7 @@ export function FloorPlanEditor() {
                     strokeWidth={isSelected ? 1.5 : 1}
                   />
                   {isSelected && (
-                    <text x={mx} y={my - WALL_T / 2 - 6} textAnchor="middle" fontSize={10} fill="#3b82f6" style={{ userSelect: 'none' }}>
+                    <text x={mx} y={my - wt / 2 - 6} textAnchor="middle" fontSize={10} fill="#3b82f6" style={{ userSelect: 'none' }}>
                       {(len / SCALE).toFixed(1)} מ׳
                     </text>
                   )}
@@ -897,7 +928,7 @@ export function FloorPlanEditor() {
               const dx = wallPreview.x2 - wallPreview.x1, dy = wallPreview.y2 - wallPreview.y1
               const len = Math.sqrt(dx * dx + dy * dy)
               if (len === 0) return null
-              const nx = (-dy / len) * WALL_T / 2, ny = (dx / len) * WALL_T / 2
+              const nx = (-dy / len) * wallThickness / 2, ny = (dx / len) * wallThickness / 2
               const pts = [
                 `${wallPreview.x1 + nx},${wallPreview.y1 + ny}`,
                 `${wallPreview.x2 + nx},${wallPreview.y2 + ny}`,
@@ -915,6 +946,22 @@ export function FloorPlanEditor() {
                 stroke="#3b82f6" strokeWidth={2} strokeDasharray="6 3"
               />
             )}
+
+            {/* North arrow */}
+            <g transform={`translate(${SVG_W - 60}, ${SVG_H - 80})`}>
+              <circle cx={0} cy={0} r={28} fill="white" stroke="#cbd5e1" strokeWidth={1} />
+              <polygon points="0,-22 6,8 0,3 -6,8" fill="#1e293b" />
+              <polygon points="0,-22 6,8 0,3 -6,8" fill="#94a3b8" transform="rotate(180)" />
+              <text x={0} y={-10} textAnchor="middle" fontSize={11} fontWeight="bold" fill="#1e293b">N</text>
+            </g>
+
+            {/* Floor label */}
+            <g transform={`translate(${SVG_W - 60}, 30)`}>
+              <rect x={-45} y={-14} width={90} height={22} rx={4} fill="white" stroke="#e2e8f0" />
+              <text x={0} y={4} textAnchor="middle" fontSize={11} fill="#64748b" fontWeight="600">
+                {['מרתף', 'קרקע', 'קומה 1', 'קומה 2', 'קומה 3', 'גג'][currentFloor]}
+              </text>
+            </g>
 
             {/* Scale bar */}
             <g transform={`translate(40, ${SVG_H - 40})`}>
