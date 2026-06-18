@@ -130,7 +130,7 @@ function DashboardPage() {
 
         const upcoming = tasks.filter(t => {
           if (!t.due_date) return false
-          const due = new Date(t.due_date)
+          const due = new Date(t.due_date + 'T12:00:00')
           return due >= now && due <= sevenDaysFromNow
         })
 
