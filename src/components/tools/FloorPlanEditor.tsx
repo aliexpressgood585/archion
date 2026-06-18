@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
 import {
   Square, MousePointer, Trash2, Download, RotateCcw,
-  Minus, DoorOpen, AlignLeft, Type, ZoomIn, ZoomOut, Undo2, Redo2, FileText
+  Minus, DoorOpen, AlignLeft, Type, ZoomIn, ZoomOut, Undo2, Redo2, FileText, Settings2, X
 } from 'lucide-react'
 
 const SCALE = 40 // px per meter
@@ -9,6 +9,29 @@ const SNAP = SCALE
 const WALL_T = 8  // wall thickness in px (= 20cm)
 const SVG_W = 1600
 const SVG_H = 1000
+
+const TB_KEY = 'archion_titleblock'
+
+interface TitleBlock {
+  projectName: string
+  address: string
+  drawingTitle: string
+  drawingNo: string
+  scale: string
+  architectName: string
+  licenseNo: string
+  revision: string
+}
+
+const DEFAULT_TB: TitleBlock = {
+  projectName: '', address: '', drawingTitle: 'תוכנית קומה',
+  drawingNo: 'A-01', scale: '1:100', architectName: '', licenseNo: '', revision: '0',
+}
+
+function loadTitleBlock(): TitleBlock {
+  try { return { ...DEFAULT_TB, ...JSON.parse(localStorage.getItem(TB_KEY) ?? '{}') } }
+  catch { return DEFAULT_TB }
+}
 
 type ToolType = 'select' | 'wall' | 'room' | 'door' | 'window' | 'text'
 
@@ -105,6 +128,13 @@ export function FloorPlanEditor() {
   // Text editing
   const [textInput, setTextInput] = useState('')
   const [textPos, setTextPos] = useState<{ x: number; y: number } | null>(null)
+  const [titleBlock, setTitleBlock] = useState<TitleBlock>(loadTitleBlock)
+  const [showTbModal, setShowTbModal] = useState(false)
+
+  function saveTitleBlock(tb: TitleBlock) {
+    setTitleBlock(tb)
+    try { localStorage.setItem(TB_KEY, JSON.stringify(tb)) } catch { /* ignore */ }
+  }
 
   // Push to history
   const pushHistory = useCallback((els: Element[]) => {
@@ -375,8 +405,10 @@ export function FloorPlanEditor() {
       ctx.fillStyle = 'white'; ctx.fillRect(0, 0, SVG_W, SVG_H)
       ctx.drawImage(img, 0, 0)
       const dataUrl = canvas.toDataURL('image/png')
+      const tb = titleBlock
+      const date = new Date().toLocaleDateString('he-IL')
       const roomRows = rooms.map(r =>
-        `<tr><td>${r.name}</td><td>${(r.w / SCALE).toFixed(1)} × ${(r.h / SCALE).toFixed(1)}</td><td>${((r.w / SCALE) * (r.h / SCALE)).toFixed(1)} מ"ר</td></tr>`
+        `<tr><td>${r.name}</td><td>${(r.w/SCALE).toFixed(1)} × ${(r.h/SCALE).toFixed(1)}</td><td>${((r.w/SCALE)*(r.h/SCALE)).toFixed(1)} מ"ר</td></tr>`
       ).join('')
       const win = window.open('', '_blank')
       if (!win) return
@@ -384,37 +416,90 @@ export function FloorPlanEditor() {
 <html dir="rtl" lang="he">
 <head>
   <meta charset="utf-8">
-  <title>תכנית קומה — הגשה</title>
+  <title>${tb.drawingTitle || 'תוכנית קומה'} — ${tb.projectName || 'פרויקט'}</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20mm; direction: rtl; color: #111; }
-    h1 { font-size: 18pt; border-bottom: 2px solid #333; padding-bottom: 6px; margin-bottom: 4px; }
-    .meta { font-size: 10pt; color: #555; margin-bottom: 12px; }
-    img { max-width: 100%; height: auto; display: block; border: 1px solid #ccc; }
-    h2 { font-size: 13pt; margin-top: 20px; margin-bottom: 6px; }
-    table { width: 100%; border-collapse: collapse; font-size: 10pt; }
-    th { background: #eee; padding: 6px 10px; border: 1px solid #ccc; text-align: right; }
-    td { padding: 5px 10px; border: 1px solid #ddd; }
-    tr:nth-child(even) td { background: #f9f9f9; }
-    tfoot td { font-weight: bold; background: #eee; border-top: 2px solid #ccc; }
-    @media print { body { margin: 12mm; } }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; direction: rtl; color: #111; background: white; }
+    .page { width: 297mm; min-height: 210mm; margin: 0 auto; padding: 8mm; display: flex; flex-direction: column; }
+    .drawing-border { border: 2px solid #111; flex: 1; display: flex; flex-direction: column; }
+    .drawing-inner { flex: 1; padding: 4mm; }
+    .drawing-inner img { width: 100%; height: auto; display: block; max-height: 140mm; object-fit: contain; }
+    /* Professional title block */
+    .tb { border-top: 2px solid #111; display: grid; grid-template-columns: 1fr 1fr 1fr; }
+    .tb-cell { border-right: 1px solid #555; padding: 3mm 4mm; font-size: 8pt; }
+    .tb-cell:first-child { border-right: none; }
+    .tb-label { font-size: 6pt; color: #888; display: block; margin-bottom: 1mm; }
+    .tb-value { font-size: 9pt; font-weight: bold; }
+    .tb-project { grid-column: 1; font-size: 9pt; }
+    .tb-proj-name { font-size: 13pt; font-weight: bold; display: block; margin-bottom: 1mm; }
+    .tb-grid { display: grid; grid-template-columns: 1fr 1fr; }
+    .tb-right { border-right: 1px solid #555; }
+    .stamp-box { border: 1px solid #888; height: 12mm; margin-top: 2mm; display: flex; align-items: center; justify-content: center; font-size: 7pt; color: #aaa; }
+    table.rooms { width: 100%; border-collapse: collapse; font-size: 7pt; margin-top: 2mm; }
+    table.rooms th { background: #eee; padding: 1mm 2mm; border: 0.5px solid #ccc; }
+    table.rooms td { padding: 1mm 2mm; border: 0.5px solid #ddd; }
+    @media print {
+      body { -webkit-print-color-adjust: exact; }
+      .page { width: 100%; padding: 5mm; }
+    }
   </style>
 </head>
 <body>
-  <h1>תכנית קומה — הגשה</h1>
-  <div class="meta">תאריך: ${new Date().toLocaleDateString('he-IL')} &nbsp;|&nbsp; ${rooms.length} חדרים &nbsp;|&nbsp; סה"כ: ${totalArea.toFixed(1)} מ"ר</div>
-  <img src="${dataUrl}" />
-  ${rooms.length > 0 ? `
-  <h2>טבלת חדרים</h2>
-  <table>
-    <thead><tr><th>שם החדר</th><th>מידות (מ׳)</th><th>שטח</th></tr></thead>
-    <tbody>${roomRows}</tbody>
-    <tfoot><tr><td colspan="2">סה"כ שטח</td><td>${totalArea.toFixed(1)} מ"ר</td></tr></tfoot>
-  </table>` : ''}
+  <div class="page">
+    <div class="drawing-border">
+      <div class="drawing-inner">
+        <img src="${dataUrl}" />
+        ${rooms.length > 0 ? `<table class="rooms" style="margin-top:3mm"><thead><tr><th>חדר</th><th>מידות (מ׳)</th><th>שטח</th></tr></thead><tbody>${roomRows}</tbody><tfoot><tr><td colspan="2" style="font-weight:bold">סה"כ</td><td style="font-weight:bold">${totalArea.toFixed(1)} מ"ר</td></tr></tfoot></table>` : ''}
+      </div>
+      <div class="tb">
+        <div class="tb-cell tb-project">
+          <span class="tb-label">שם הפרויקט</span>
+          <span class="tb-proj-name">${tb.projectName || '—'}</span>
+          <span class="tb-label">כתובת</span>
+          <span style="font-size:8pt">${tb.address || '—'}</span>
+        </div>
+        <div class="tb-cell">
+          <span class="tb-label">שם התוכנית</span>
+          <span class="tb-value">${tb.drawingTitle || 'תוכנית קומה'}</span>
+          <br/><br/>
+          <div class="tb-grid">
+            <div class="tb-right" style="padding-left:3mm">
+              <span class="tb-label">מספר תוכנית</span>
+              <span class="tb-value">${tb.drawingNo}</span>
+            </div>
+            <div style="padding-right:3mm">
+              <span class="tb-label">מאסטב</span>
+              <span class="tb-value">${tb.scale}</span>
+            </div>
+          </div>
+        </div>
+        <div class="tb-cell">
+          <span class="tb-label">אדריכל</span>
+          <span class="tb-value">${tb.architectName || '—'}</span>
+          <br/>
+          <span class="tb-label">מספר רישיון</span>
+          <span style="font-size:8pt">${tb.licenseNo || '—'}</span>
+          <br/>
+          <div class="tb-grid">
+            <div class="tb-right" style="padding-left:3mm">
+              <span class="tb-label">תאריך</span>
+              <span style="font-size:8pt">${date}</span>
+            </div>
+            <div style="padding-right:3mm">
+              <span class="tb-label">מהדורה</span>
+              <span style="font-size:8pt">${tb.revision}</span>
+            </div>
+          </div>
+          <div class="stamp-box">חותמת / חתימה</div>
+        </div>
+      </div>
+    </div>
+  </div>
 </body>
 </html>`)
       win.document.close()
       win.focus()
-      setTimeout(() => win.print(), 500)
+      setTimeout(() => win.print(), 600)
     }
     img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(serialized)
   }
@@ -528,6 +613,7 @@ export function FloorPlanEditor() {
     : 'crosshair'
 
   return (
+    <>
     <div className="flex flex-col gap-3" dir="rtl">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-1.5 bg-slate-800 rounded-xl px-3 py-2">
@@ -585,6 +671,11 @@ export function FloorPlanEditor() {
           {rooms.length} חדרים • {totalArea.toFixed(1)} מ"ר
         </span>
 
+        <button onClick={() => setShowTbModal(true)}
+          title="הגדרות Title Block"
+          className="p-2 rounded-lg text-slate-300 hover:bg-slate-700 transition">
+          <Settings2 className="w-4 h-4" />
+        </button>
         <button onClick={exportPdf}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-700 hover:bg-purple-600 text-white rounded-lg text-xs font-medium transition">
           <FileText className="w-3.5 h-3.5" />
@@ -978,5 +1069,47 @@ export function FloorPlanEditor() {
         </div>
       </div>
     </div>
+
+    {/* Title Block settings modal */}
+    {showTbModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" dir="rtl">
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div className="flex items-center justify-between p-5 border-b border-slate-100">
+            <h2 className="text-lg font-semibold text-slate-800">הגדרות Title Block</h2>
+            <button onClick={() => setShowTbModal(false)} className="p-1.5 rounded-lg hover:bg-slate-100 transition">
+              <X className="w-5 h-5 text-slate-500" />
+            </button>
+          </div>
+          <div className="p-5 space-y-3">
+            {([
+              ['projectName', 'שם הפרויקט'],
+              ['address', 'כתובת הפרויקט'],
+              ['drawingTitle', 'שם התוכנית'],
+              ['drawingNo', 'מספר תוכנית'],
+              ['scale', 'מאסטב (לדוגמה: 1:100)'],
+              ['architectName', 'שם האדריכל'],
+              ['licenseNo', 'מספר רישיון'],
+              ['revision', 'מהדורה'],
+            ] as [keyof TitleBlock, string][]).map(([key, label]) => (
+              <div key={key}>
+                <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
+                <input
+                  value={titleBlock[key]}
+                  onChange={e => saveTitleBlock({ ...titleBlock, [key]: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            ))}
+            <button
+              onClick={() => setShowTbModal(false)}
+              className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium transition mt-2"
+            >
+              שמור וסגור
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   )
 }

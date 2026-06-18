@@ -10,12 +10,13 @@ const ImageEditor = lazy(() => import('@/components/tools/ImageEditor').then(m =
 const SpreadsheetEditor = lazy(() => import('@/components/tools/SpreadsheetEditor').then(m => ({ default: m.SpreadsheetEditor })))
 const FormaAnalysis = lazy(() => import('@/components/tools/FormaAnalysis').then(m => ({ default: m.FormaAnalysis })))
 const ClashDetective = lazy(() => import('@/components/tools/ClashDetective').then(m => ({ default: m.ClashDetective })))
+const SectionEditor = lazy(() => import('@/components/tools/SectionEditor').then(m => ({ default: m.SectionEditor })))
 
 export const Route = createFileRoute('/_authenticated/tools/$toolId')({
   component: ToolDetailPage,
 })
 
-type ToolType = 'floor-plan' | '3d-viewer' | 'render-gallery' | 'design-viewer' | 'gantt' | 'image-editor' | 'spreadsheet' | 'forma-analysis' | 'clash-detective'
+type ToolType = 'floor-plan' | '3d-viewer' | 'render-gallery' | 'design-viewer' | 'gantt' | 'image-editor' | 'spreadsheet' | 'forma-analysis' | 'clash-detective' | 'section-editor'
 
 interface ToolDef {
   label: string
@@ -299,6 +300,7 @@ function ToolDetailPage() {
                   {tool.type === 'spreadsheet' && <SpreadsheetEditor />}
                   {tool.type === 'forma-analysis' && <FormaAnalysis />}
                   {tool.type === 'clash-detective' && <ClashDetective />}
+                  {tool.type === 'section-editor' && <SectionEditor />}
                 </Suspense>
               </div>
             )}

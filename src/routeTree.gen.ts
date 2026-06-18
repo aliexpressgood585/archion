@@ -22,6 +22,7 @@ import { Route as AuthenticatedPortalIndexRouteImport } from './routes/_authenti
 import { Route as AuthenticatedInvoicesIndexRouteImport } from './routes/_authenticated/invoices/index'
 import { Route as AuthenticatedDocumentsIndexRouteImport } from './routes/_authenticated/documents/index'
 import { Route as AuthenticatedClientsIndexRouteImport } from './routes/_authenticated/clients/index'
+import { Route as AuthenticatedToolsSheetsRouteImport } from './routes/_authenticated/tools/sheets'
 import { Route as AuthenticatedToolsToolIdRouteImport } from './routes/_authenticated/tools/$toolId'
 import { Route as AuthenticatedProjectsProjectIdRouteImport } from './routes/_authenticated/projects/$projectId'
 import { Route as AuthenticatedClientsClientIdRouteImport } from './routes/_authenticated/clients/$clientId'
@@ -96,6 +97,12 @@ const AuthenticatedClientsIndexRoute =
     path: '/clients/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedToolsSheetsRoute =
+  AuthenticatedToolsSheetsRouteImport.update({
+    id: '/tools/sheets',
+    path: '/tools/sheets',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedToolsToolIdRoute =
   AuthenticatedToolsToolIdRouteImport.update({
     id: '/tools/$toolId',
@@ -124,6 +131,7 @@ export interface FileRoutesByFullPath {
   '/clients/$clientId': typeof AuthenticatedClientsClientIdRoute
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/tools/$toolId': typeof AuthenticatedToolsToolIdRoute
+  '/tools/sheets': typeof AuthenticatedToolsSheetsRoute
   '/clients/': typeof AuthenticatedClientsIndexRoute
   '/documents/': typeof AuthenticatedDocumentsIndexRoute
   '/invoices/': typeof AuthenticatedInvoicesIndexRoute
@@ -141,6 +149,7 @@ export interface FileRoutesByTo {
   '/clients/$clientId': typeof AuthenticatedClientsClientIdRoute
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/tools/$toolId': typeof AuthenticatedToolsToolIdRoute
+  '/tools/sheets': typeof AuthenticatedToolsSheetsRoute
   '/clients': typeof AuthenticatedClientsIndexRoute
   '/documents': typeof AuthenticatedDocumentsIndexRoute
   '/invoices': typeof AuthenticatedInvoicesIndexRoute
@@ -160,6 +169,7 @@ export interface FileRoutesById {
   '/_authenticated/clients/$clientId': typeof AuthenticatedClientsClientIdRoute
   '/_authenticated/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/_authenticated/tools/$toolId': typeof AuthenticatedToolsToolIdRoute
+  '/_authenticated/tools/sheets': typeof AuthenticatedToolsSheetsRoute
   '/_authenticated/clients/': typeof AuthenticatedClientsIndexRoute
   '/_authenticated/documents/': typeof AuthenticatedDocumentsIndexRoute
   '/_authenticated/invoices/': typeof AuthenticatedInvoicesIndexRoute
@@ -179,6 +189,7 @@ export interface FileRouteTypes {
     | '/clients/$clientId'
     | '/projects/$projectId'
     | '/tools/$toolId'
+    | '/tools/sheets'
     | '/clients/'
     | '/documents/'
     | '/invoices/'
@@ -196,6 +207,7 @@ export interface FileRouteTypes {
     | '/clients/$clientId'
     | '/projects/$projectId'
     | '/tools/$toolId'
+    | '/tools/sheets'
     | '/clients'
     | '/documents'
     | '/invoices'
@@ -214,6 +226,7 @@ export interface FileRouteTypes {
     | '/_authenticated/clients/$clientId'
     | '/_authenticated/projects/$projectId'
     | '/_authenticated/tools/$toolId'
+    | '/_authenticated/tools/sheets'
     | '/_authenticated/clients/'
     | '/_authenticated/documents/'
     | '/_authenticated/invoices/'
@@ -323,6 +336,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedClientsIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/tools/sheets': {
+      id: '/_authenticated/tools/sheets'
+      path: '/tools/sheets'
+      fullPath: '/tools/sheets'
+      preLoaderRoute: typeof AuthenticatedToolsSheetsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/tools/$toolId': {
       id: '/_authenticated/tools/$toolId'
       path: '/tools/$toolId'
@@ -353,6 +373,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedClientsClientIdRoute: typeof AuthenticatedClientsClientIdRoute
   AuthenticatedProjectsProjectIdRoute: typeof AuthenticatedProjectsProjectIdRoute
   AuthenticatedToolsToolIdRoute: typeof AuthenticatedToolsToolIdRoute
+  AuthenticatedToolsSheetsRoute: typeof AuthenticatedToolsSheetsRoute
   AuthenticatedClientsIndexRoute: typeof AuthenticatedClientsIndexRoute
   AuthenticatedDocumentsIndexRoute: typeof AuthenticatedDocumentsIndexRoute
   AuthenticatedInvoicesIndexRoute: typeof AuthenticatedInvoicesIndexRoute
@@ -368,6 +389,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedClientsClientIdRoute: AuthenticatedClientsClientIdRoute,
   AuthenticatedProjectsProjectIdRoute: AuthenticatedProjectsProjectIdRoute,
   AuthenticatedToolsToolIdRoute: AuthenticatedToolsToolIdRoute,
+  AuthenticatedToolsSheetsRoute: AuthenticatedToolsSheetsRoute,
   AuthenticatedClientsIndexRoute: AuthenticatedClientsIndexRoute,
   AuthenticatedDocumentsIndexRoute: AuthenticatedDocumentsIndexRoute,
   AuthenticatedInvoicesIndexRoute: AuthenticatedInvoicesIndexRoute,
