@@ -8,10 +8,9 @@ import { Toaster } from '@/components/ui/toast'
 
 export interface AppLayoutProps {
   title?: string
-  unreadCount?: number
 }
 
-export function AppLayout({ title, unreadCount = 0 }: AppLayoutProps) {
+export function AppLayout({ title }: AppLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
@@ -47,7 +46,6 @@ export function AppLayout({ title, unreadCount = 0 }: AppLayoutProps) {
         <Topbar
           title={title}
           onMenuToggle={() => setMobileSidebarOpen((prev) => !prev)}
-          unreadCount={unreadCount}
         />
 
         {/* Page content */}

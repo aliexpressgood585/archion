@@ -142,13 +142,15 @@ function ProjectsPage() {
           <h1 className="text-2xl font-bold text-slate-800">פרויקטים</h1>
           <p className="text-slate-500 text-sm mt-0.5">{projects.length} פרויקטים בסך הכל</p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition text-sm"
-        >
-          <Plus className="w-4 h-4" />
-          פרויקט חדש
-        </button>
+        {profile?.role !== 'viewer' && (
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition text-sm"
+          >
+            <Plus className="w-4 h-4" />
+            פרויקט חדש
+          </button>
+        )}
       </div>
 
       {/* Filters */}

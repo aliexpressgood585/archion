@@ -4,9 +4,9 @@ import { useAuth } from '@/lib/auth-context'
 import { formatDate } from '@/lib/utils'
 import {
   Plus, Upload, CheckCircle, Clock, AlertCircle,
-  FileCode2, Palette, Zap, Eye, Download, X
+  FileCode2, Palette, Zap, Eye, Download, X, ThumbsUp, ThumbsDown
 } from 'lucide-react'
-import type { Deliverable, DeliverableFile, ArchitectureTool } from '@/integrations/supabase/types'
+import type { Deliverable, DeliverableFile, ArchitectureTool, DeliverableApprovalStatus } from '@/integrations/supabase/types'
 import { FileViewer } from '@/components/viewers/FileViewer'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string
@@ -77,6 +77,12 @@ const STATUS_LABELS: Record<string, string> = {
   archived: 'בארכיון',
 }
 
+const APPROVAL_BADGE: Record<DeliverableApprovalStatus, { label: string; cls: string }> = {
+  pending: { label: 'ממתין לאישור', cls: 'bg-yellow-100 text-yellow-700' },
+  approved: { label: 'אושר', cls: 'bg-green-100 text-green-700' },
+  rejected: { label: 'נדחה', cls: 'bg-red-100 text-red-700' },
+}
+
 export function ProjectDeliverables({ projectId }: { projectId: string }) {
   const { profile } = useAuth()
   const [deliverables, setDeliverables] = useState<DeliverableWithFiles[]>([])
@@ -93,6 +99,9 @@ export function ProjectDeliverables({ projectId }: { projectId: string }) {
   const [saving, setSaving] = useState(false)
   const [viewingFile, setViewingFile] = useState<DeliverableFile | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [approvingId, setApprovingId] = useState<string | null>(null)
+
+  const isManager = profile?.role === 'owner' || profile?.role === 'admin'
 
   const orgId = profile?.organization_id
 
@@ -174,6 +183,14 @@ export function ProjectDeliverables({ projectId }: { projectId: string }) {
     }
   }
 
+  const handleApproval = async (delId: string, status: DeliverableApprovalStatus, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setApprovingId(delId)
+    await (supabase.from('deliverables' as any).update({ approval_status: status }).eq('id', delId) as any)
+    setDeliverables(prev => prev.map(d => d.id === delId ? { ...d, approval_status: status } : d))
+    setApprovingId(null)
+  }
+
   return (
     <div className="space-y-6" dir="rtl">
       {/* Header */}
@@ -218,12 +235,39 @@ export function ProjectDeliverables({ projectId }: { projectId: string }) {
                       {CATEGORY_LABELS[del.category]}
                     </p>
                   </div>
-                  <div className="flex items-center gap-1.5 ml-2">
+                  <div className="flex items-center gap-1.5 ml-2 shrink-0">
                     <StatusIcon className="w-4 h-4 text-slate-400" />
                     <span className="text-xs font-medium text-slate-600">
                       {STATUS_LABELS[del.status]}
                     </span>
                   </div>
+                </div>
+
+                {/* Approval status badge + buttons */}
+                <div className="flex items-center justify-between mb-3">
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${APPROVAL_BADGE[del.approval_status].cls}`}>
+                    {APPROVAL_BADGE[del.approval_status].label}
+                  </span>
+                  {isManager && (
+                    <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+                      <button
+                        disabled={approvingId === del.id}
+                        onClick={e => handleApproval(del.id, 'approved', e)}
+                        className="flex items-center gap-1 px-2 py-1 text-xs font-medium bg-green-50 text-green-700 hover:bg-green-100 rounded-lg transition disabled:opacity-50"
+                      >
+                        <ThumbsUp className="w-3 h-3" />
+                        אשר
+                      </button>
+                      <button
+                        disabled={approvingId === del.id}
+                        onClick={e => handleApproval(del.id, 'rejected', e)}
+                        className="flex items-center gap-1 px-2 py-1 text-xs font-medium bg-red-50 text-red-700 hover:bg-red-100 rounded-lg transition disabled:opacity-50"
+                      >
+                        <ThumbsDown className="w-3 h-3" />
+                        דחה
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Tools */}

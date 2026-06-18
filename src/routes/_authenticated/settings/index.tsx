@@ -112,13 +112,32 @@ function SettingsPage() {
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!inviteEmail.trim()) return
+    if (!inviteEmail.trim() || !orgId || !profile) return
     setInviting(true)
     setInviteMsg(null)
-    // In a real app this would call an edge function to send an invite.
-    // Here we simulate by showing a success message.
-    await new Promise(r => setTimeout(r, 800))
+    const { data: targetProfile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', inviteEmail.trim())
+      .maybeSingle()
+    if (!targetProfile) {
+      setInviting(false)
+      setInviteMsg({ type: 'error', text: 'לא נמצא משתמש עם כתובת אימייל זו' })
+      return
+    }
+    const { error } = await supabase.from('notifications').insert({
+      user_id: targetProfile.id,
+      organization_id: orgId,
+      type: 'team_invite',
+      title: 'הזמנה להצטרפות לצוות',
+      body: `${profile.full_name ?? 'מנהל'} הזמין אותך להצטרף לארגון`,
+      data: { invited_by: profile.id, organization_id: orgId },
+    })
     setInviting(false)
+    if (error) {
+      setInviteMsg({ type: 'error', text: 'שליחת ההזמנה נכשלה. נסה שוב.' })
+      return
+    }
     setInviteMsg({ type: 'success', text: `הזמנה נשלחה ל-${inviteEmail}` })
     setInviteEmail('')
   }

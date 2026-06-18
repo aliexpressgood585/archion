@@ -211,9 +211,11 @@ function ProjectDetailPage() {
   const todoTasks = tasks.filter(t => t.status === 'todo')
   const inProgressTasks = tasks.filter(t => t.status === 'in_progress')
   const doneTasks = tasks.filter(t => t.status === 'done')
-  const totalInvoiced = invoices.reduce((s, i) => s + i.total, 0)
+  const activeInvoices = invoices.filter(i => i.status !== 'cancelled')
+  const totalInvoiced = activeInvoices.reduce((s, i) => s + i.total, 0)
   const totalPaid = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + i.total, 0)
   const budgetRemaining = (project.budget ?? 0) - totalInvoiced
+  const budgetPercent = project.budget && project.budget > 0 ? Math.min((totalInvoiced / project.budget) * 100, 100) : 0
 
   return (
     <div className="p-6 max-w-7xl mx-auto" dir="rtl">
@@ -355,7 +357,16 @@ function ProjectDetailPage() {
       {/* Budget Tab */}
       {activeTab === 'budget' && (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="flex justify-end">
+            <a
+              href="#/invoices"
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium transition"
+            >
+              <FileText className="w-4 h-4" />
+              צור חשבונית
+            </a>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div className="bg-white rounded-2xl border border-slate-100 p-5 text-center">
               <p className="text-xs text-slate-400 mb-1">תקציב כולל</p>
               <p className="text-2xl font-bold text-slate-800">
@@ -377,6 +388,24 @@ function ProjectDetailPage() {
               </p>
             </div>
           </div>
+          {project.budget && project.budget > 0 && (
+            <div className="bg-white rounded-2xl border border-slate-100 p-5">
+              <div className="flex justify-between text-sm mb-2">
+                <span className="font-medium text-slate-700">ניצול תקציב</span>
+                <span className="text-slate-500">{Math.round(budgetPercent)}%</span>
+              </div>
+              <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${budgetPercent >= 100 ? 'bg-red-500' : budgetPercent >= 80 ? 'bg-orange-500' : 'bg-blue-500'}`}
+                  style={{ width: `${budgetPercent}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-xs text-slate-400 mt-1">
+                <span>{formatCurrency(totalInvoiced)} חויב</span>
+                <span>{formatCurrency(Math.max(budgetRemaining, 0))} נותר</span>
+              </div>
+            </div>
+          )}
           <div className="bg-white rounded-2xl border border-slate-100 p-5">
             <h2 className="font-semibold text-slate-800 mb-4">חשבוניות פרויקט</h2>
             {invoices.length === 0 ? (
