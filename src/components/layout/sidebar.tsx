@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
+  Wrench,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
@@ -29,6 +30,7 @@ const navItems: NavItem[] = [
   { to: '/clients', icon: Users, labelKey: 'clients' },
   { to: '/invoices', icon: FileText, labelKey: 'invoices' },
   { to: '/documents', icon: File, labelKey: 'documents' },
+  { to: '/tools', icon: Wrench, labelKey: 'tools' },
   { to: '/settings', icon: Settings, labelKey: 'settings' },
 ]
 
