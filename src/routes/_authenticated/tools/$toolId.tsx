@@ -5,6 +5,7 @@ import { FileViewer } from '@/components/viewers/FileViewer'
 
 const BIMStudio       = lazy(() => import('@/components/tools/BIMStudio').then(m => ({ default: m.BIMStudio })))
 const FloorPlanEditor = lazy(() => import('@/components/tools/FloorPlanEditor').then(m => ({ default: m.FloorPlanEditor })))
+const ArchiCADStudio  = lazy(() => import('@/components/tools/ArchiCADStudio').then(m => ({ default: m.ArchiCADStudio })))
 const GanttEditor     = lazy(() => import('@/components/tools/GanttEditor').then(m => ({ default: m.GanttEditor })))
 const Viewer3D        = lazy(() => import('@/components/tools/Viewer3D').then(m => ({ default: m.Viewer3D })))
 const ImageEditor     = lazy(() => import('@/components/tools/ImageEditor').then(m => ({ default: m.ImageEditor })))
@@ -158,7 +159,7 @@ function ToolDetailPage() {
 
   function renderEmbeddedTool() {
     switch (tool.type) {
-      case 'floor-plan':   return <BIMStudio />
+      case 'floor-plan':   return <ArchiCADStudio />
       case 'gantt':        return <GanttEditor />
       case '3d-viewer':    return <SketchUp3D />
       case 'render-3d':    return <Viewer3D />
