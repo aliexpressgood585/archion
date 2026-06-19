@@ -11,6 +11,7 @@ const ImageEditor     = lazy(() => import('@/components/tools/ImageEditor').then
 const SpreadsheetEditor = lazy(() => import('@/components/tools/SpreadsheetEditor').then(m => ({ default: m.SpreadsheetEditor })))
 const ClashDetective  = lazy(() => import('@/components/tools/ClashDetective').then(m => ({ default: m.ClashDetective })))
 const LayoutEditor    = lazy(() => import('@/components/tools/LayoutEditor').then(m => ({ default: m.LayoutEditor })))
+const SketchUp3D      = lazy(() => import('@/components/tools/SketchUp3D').then(m => ({ default: m.SketchUp3D })))
 
 export const Route = createFileRoute('/_authenticated/tools/$toolId')({
   component: ToolDetailPage,
@@ -159,7 +160,7 @@ function ToolDetailPage() {
     switch (tool.type) {
       case 'floor-plan':   return <BIMStudio />
       case 'gantt':        return <GanttEditor />
-      case '3d-viewer':    return <Viewer3D />
+      case '3d-viewer':    return <SketchUp3D />
       case 'render-3d':    return <Viewer3D />
       case 'photoshop':    return <ImageEditor />
       case 'spreadsheet':  return <SpreadsheetEditor />
@@ -238,7 +239,9 @@ function ToolDetailPage() {
                   <Suspense fallback={<Loader />}>
                     {tool.type === 'photoshop'
                       ? <ImageEditor />
-                      : (tool.type === '3d-viewer' || tool.type === 'render-3d')
+                      : tool.type === '3d-viewer'
+                        ? <SketchUp3D />
+                        : tool.type === 'render-3d'
                         ? <Viewer3D />
                         : <FileViewer url={viewing.url} fileName={viewing.name} fileType={viewing.type} />
                     }
