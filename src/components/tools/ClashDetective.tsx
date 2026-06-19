@@ -4,6 +4,8 @@ import {
   CheckCircle, Download, RotateCcw, FileText, Filter,
   ChevronDown, ChevronUp, MessageSquare, Settings, Upload,
 } from 'lucide-react'
+import * as THREE from 'three'
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 
 const SVG_W = 700
 const SVG_H = 520
@@ -144,8 +146,31 @@ const SEED: ElementBox[] = [
 
 const ASSIGNEES = ['', 'יוסי כהן', 'מירה לוי', 'אבי גולן', 'שרה דוד', 'נדב ברק']
 
+const LEVEL_Y: Record<Level, number> = { 'מרתף': 0, 'קרקע': 3.5, 'קומה 1': 7, 'קומה 2': 10.5, 'גג': 14 }
+const SCALE = 60 // SVG px → world meters divisor
+const FLOOR_H = 3.5
+
+const IFC_DISCIPLINE: Record<number, DisciplineKey> = {
+  2391406946: 'arch', 3512223829: 'arch', 1529196076: 'arch', 3027962421: 'arch',
+  3304561284: 'arch', 395920057: 'arch', 2016517767: 'arch',
+  843113511: 'struct', 905975707: 'struct', 753842376: 'struct', 2906023776: 'struct',
+  4222183408: 'mep_plumb', 679976338: 'mep_plumb', 3566463478: 'mep_plumb',
+  3518393246: 'mep_hvac', 1303795690: 'mep_hvac', 1052013943: 'mep_hvac',
+  4071564933: 'mep_elec', 3824725483: 'mep_elec', 2635815018: 'mep_elec',
+}
+
 export function ClashDetective() {
   const svgRef = useRef<SVGSVGElement>(null)
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
+  const sceneRef = useRef<THREE.Scene | null>(null)
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null)
+  const controlsRef = useRef<OrbitControls | null>(null)
+  const animRef = useRef<number>(0)
+  const ifcInputRef = useRef<HTMLInputElement>(null)
+  const [ifcLoading, setIfcLoading] = useState(false)
+  const [ifcFileName, setIfcFileName] = useState<string | null>(null)
+  const [ifcError, setIfcError] = useState<string | null>(null)
 
   const [elements, setElements] = useState<ElementBox[]>(SEED)
   const [clashes, setClashes] = useState<Clash[]>([])
@@ -184,6 +209,104 @@ export function ClashDetective() {
   }, [tolerance])
 
   useEffect(() => { setClashes(detectClashes(SEED)) }, [])
+
+  // Three.js 3D viewport
+  useEffect(() => {
+    if (viewMode !== '3d-hint' || !viewportRef.current) return
+    const mount = viewportRef.current
+    const w = mount.clientWidth || 600, h = 480
+    const renderer = new THREE.WebGLRenderer({ antialias: true })
+    renderer.setSize(w, h)
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    renderer.shadowMap.enabled = true
+    mount.appendChild(renderer.domElement)
+    rendererRef.current = renderer
+    const scene = new THREE.Scene(); scene.background = new THREE.Color(0x0f172a)
+    sceneRef.current = scene
+    const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 500)
+    camera.position.set(8, 12, 16)
+    cameraRef.current = camera
+    const controls = new OrbitControls(camera, renderer.domElement)
+    controls.enableDamping = true; controlsRef.current = controls
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5))
+    const sun = new THREE.DirectionalLight(0xffffff, 1.2); sun.position.set(10, 20, 10); scene.add(sun)
+    scene.add(new THREE.GridHelper(20, 20, 0x334155, 0x1e293b))
+    // Draw elements as 3D boxes
+    elements.forEach(el => {
+      const d = DISCIPLINES[el.discipline]
+      const w3 = el.w / SCALE, d3 = el.h / SCALE
+      const x3 = el.x / SCALE + w3 / 2, z3 = el.y / SCALE + d3 / 2
+      const y3 = LEVEL_Y[el.level]
+      const geo = new THREE.BoxGeometry(w3, FLOOR_H, d3)
+      const isCrash = clashes.some(c => (c.a === el.id || c.b === el.id))
+      const mat = new THREE.MeshStandardMaterial({ color: isCrash ? '#ef4444' : d.fill, opacity: isCrash ? 0.85 : 0.65, transparent: true })
+      const mesh = new THREE.Mesh(geo, mat); mesh.position.set(x3, y3 + FLOOR_H / 2, z3)
+      const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: d.color }))
+      mesh.add(edges); scene.add(mesh)
+    })
+    let raf: number
+    function loop() { raf = requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera) }
+    loop(); animRef.current = raf!
+    return () => {
+      cancelAnimationFrame(animRef.current); renderer.dispose()
+      if (mount.contains(renderer.domElement)) mount.removeChild(renderer.domElement)
+    }
+  }, [viewMode, elements, clashes])
+
+  async function loadIfcFile(file: File) {
+    setIfcLoading(true); setIfcError(null); setIfcFileName(file.name)
+    try {
+      const WebIFC = await import('web-ifc')
+      const api = new WebIFC.IfcAPI()
+      await api.Init((path: string) => `https://cdn.jsdelivr.net/npm/web-ifc@0.0.77/${path}`, true)
+      const data = new Uint8Array(await file.arrayBuffer())
+      const modelID = api.OpenModel(data, { COORDINATE_TO_ORIGIN: true, USE_FAST_BOOLS: true })
+      const newEls: ElementBox[] = []
+      const typeNums = Object.keys(IFC_DISCIPLINE).map(Number)
+      for (const typeNum of typeNums) {
+        const ids = api.GetAllItemsOfType(modelID, typeNum, true)
+        const disc = IFC_DISCIPLINE[typeNum]
+        for (let i = 0; i < ids.size(); i++) {
+          const expressID = ids.get(i)
+          try {
+            const flatMesh = api.GetFlatMesh(modelID, expressID)
+            let minX = Infinity, minY = Infinity, minZ = Infinity, maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity
+            for (let gi = 0; gi < flatMesh.geometries.size(); gi++) {
+              const placed = flatMesh.geometries.get(gi)
+              const ifcGeom = api.GetGeometry(modelID, placed.geometryExpressID)
+              const verts = api.GetVertexArray(ifcGeom.GetVertexData(), ifcGeom.GetVertexDataSize())
+              const mat = new THREE.Matrix4().fromArray(placed.flatTransformation)
+              for (let k = 0; k < verts.length; k += 6) {
+                const p = new THREE.Vector3(verts[k], verts[k + 1], verts[k + 2]).applyMatrix4(mat)
+                minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x)
+                minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y)
+                minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z)
+              }
+            }
+            if (maxX === -Infinity) continue
+            const worldH = maxY
+            const level: Level = worldH < 0 ? 'מרתף' : worldH < 3.5 ? 'קרקע' : worldH < 7 ? 'קומה 1' : worldH < 10.5 ? 'קומה 2' : 'גג'
+            newEls.push({
+              id: `IFC-${expressID}`,
+              discipline: disc,
+              level,
+              x: minX * SCALE, y: minZ * SCALE,
+              w: Math.max(1, (maxX - minX) * SCALE),
+              h: Math.max(1, (maxZ - minZ) * SCALE),
+              label: `${disc}-${expressID}`,
+            })
+          } catch { /* skip element */ }
+        }
+      }
+      api.CloseModel(modelID)
+      if (newEls.length === 0) { setIfcError('לא נמצאו אלמנטים בקובץ IFC'); setIfcLoading(false); return }
+      setElements(newEls)
+      runDetection(newEls)
+    } catch (err) {
+      setIfcError(`שגיאה בטעינת IFC: ${err instanceof Error ? err.message : 'unknown'}`)
+    }
+    setIfcLoading(false)
+  }
 
   function animatedScan() {
     setScanning(true)
@@ -351,10 +474,15 @@ export function ClashDetective() {
           <RotateCcw className="w-3.5 h-3.5" />
         </button>
 
-        <button onClick={() => { setElements(SEED); setClashes(detectClashes(SEED)); setSelectedClash(null) }} title="טען דוגמה"
-          className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-slate-300 hover:bg-slate-700 text-xs transition">
-          <Upload className="w-3 h-3" /> טען IFC
+        <button onClick={() => ifcInputRef.current?.click()} disabled={ifcLoading} title="טען קובץ IFC אמיתי"
+          className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-blue-300 hover:bg-slate-700 text-xs transition disabled:opacity-50">
+          <Upload className="w-3 h-3" /> {ifcLoading ? 'טוען...' : 'IFC'}
         </button>
+        <button onClick={() => { setElements(SEED); setClashes(detectClashes(SEED)); setSelectedClash(null); setIfcFileName(null) }} title="טען דוגמה מובנית"
+          className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-slate-300 hover:bg-slate-700 text-xs transition">
+          <Layers className="w-3 h-3" /> דוגמה
+        </button>
+        <input ref={ifcInputRef} type="file" hidden accept=".ifc" onChange={e => { const f = e.target.files?.[0]; if (f) loadIfcFile(f); e.target.value = '' }} />
 
         <div className="flex-1" />
 
@@ -410,6 +538,14 @@ export function ClashDetective() {
         </div>
       )}
 
+      {/* IFC status bar */}
+      {(ifcFileName || ifcError) && (
+        <div className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs ${ifcError ? 'bg-red-50 border border-red-200 text-red-700' : 'bg-green-50 border border-green-200 text-green-700'}`}>
+          {ifcError ? <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> : <CheckCircle className="w-3.5 h-3.5 shrink-0" />}
+          <span>{ifcError ?? `נטען: ${ifcFileName} — ${elements.length} אלמנטים, ${clashes.length} התנגשויות`}</span>
+        </div>
+      )}
+
       {/* Scan progress */}
       {scanning && (
         <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-2">
@@ -431,17 +567,19 @@ export function ClashDetective() {
             {(['plan', '3d-hint'] as const).map(m => (
               <button key={m} onClick={() => setViewMode(m)}
                 className={`px-3 py-1.5 text-xs font-medium transition ${viewMode === m ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>
-                {m === 'plan' ? '📐 תוכנית' : '🧊 3D (בקרוב)'}
+                {m === 'plan' ? '📐 תוכנית' : '🧊 תצוגת 3D'}
               </button>
             ))}
             <span className="ml-auto px-3 py-1.5 text-[10px] text-slate-400">{activeLevel}</span>
           </div>
 
           {viewMode === '3d-hint' ? (
-            <div className="h-[480px] flex flex-col items-center justify-center gap-3 bg-slate-900 text-white">
-              <div className="text-5xl">🧊</div>
-              <p className="font-semibold">תצוגת 3D BIM</p>
-              <p className="text-sm text-white/60">בקרוב — טען GLB/IFC בכלי הצפייה 3D</p>
+            <div ref={viewportRef} style={{ height: 480, position: 'relative', background: '#0f172a' }}>
+              {elements.length === 0 && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white pointer-events-none">
+                  <p className="text-sm font-semibold opacity-60">טען קובץ IFC או לחץ "דוגמה"</p>
+                </div>
+              )}
             </div>
           ) : (
             <svg
