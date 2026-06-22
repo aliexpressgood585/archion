@@ -26,6 +26,7 @@ import { Route as AuthenticatedToolsSheetsRouteImport } from './routes/_authenti
 import { Route as AuthenticatedToolsToolIdRouteImport } from './routes/_authenticated/tools/$toolId'
 import { Route as AuthenticatedProjectsProjectIdRouteImport } from './routes/_authenticated/projects/$projectId'
 import { Route as AuthenticatedClientsClientIdRouteImport } from './routes/_authenticated/clients/$clientId'
+import { Route as AuthenticatedProposalsIndexRouteImport } from './routes/_authenticated/proposals/index'
 
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
   id: '/_authenticated',
@@ -121,6 +122,12 @@ const AuthenticatedClientsClientIdRoute =
     path: '/clients/$clientId',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedProposalsIndexRoute =
+  AuthenticatedProposalsIndexRouteImport.update({
+    id: '/proposals/',
+    path: '/proposals/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -134,6 +141,7 @@ export interface FileRoutesByFullPath {
   '/tools/sheets': typeof AuthenticatedToolsSheetsRoute
   '/clients/': typeof AuthenticatedClientsIndexRoute
   '/documents/': typeof AuthenticatedDocumentsIndexRoute
+  '/proposals/': typeof AuthenticatedProposalsIndexRoute
   '/invoices/': typeof AuthenticatedInvoicesIndexRoute
   '/portal/': typeof AuthenticatedPortalIndexRoute
   '/projects/': typeof AuthenticatedProjectsIndexRoute
@@ -152,6 +160,7 @@ export interface FileRoutesByTo {
   '/tools/sheets': typeof AuthenticatedToolsSheetsRoute
   '/clients': typeof AuthenticatedClientsIndexRoute
   '/documents': typeof AuthenticatedDocumentsIndexRoute
+  '/proposals': typeof AuthenticatedProposalsIndexRoute
   '/invoices': typeof AuthenticatedInvoicesIndexRoute
   '/portal': typeof AuthenticatedPortalIndexRoute
   '/projects': typeof AuthenticatedProjectsIndexRoute
@@ -172,6 +181,7 @@ export interface FileRoutesById {
   '/_authenticated/tools/sheets': typeof AuthenticatedToolsSheetsRoute
   '/_authenticated/clients/': typeof AuthenticatedClientsIndexRoute
   '/_authenticated/documents/': typeof AuthenticatedDocumentsIndexRoute
+  '/_authenticated/proposals/': typeof AuthenticatedProposalsIndexRoute
   '/_authenticated/invoices/': typeof AuthenticatedInvoicesIndexRoute
   '/_authenticated/portal/': typeof AuthenticatedPortalIndexRoute
   '/_authenticated/projects/': typeof AuthenticatedProjectsIndexRoute
@@ -193,6 +203,7 @@ export interface FileRouteTypes {
     | '/clients/'
     | '/documents/'
     | '/invoices/'
+    | '/proposals/'
     | '/portal/'
     | '/projects/'
     | '/settings/'
@@ -211,6 +222,7 @@ export interface FileRouteTypes {
     | '/clients'
     | '/documents'
     | '/invoices'
+    | '/proposals'
     | '/portal'
     | '/projects'
     | '/settings'
@@ -230,6 +242,7 @@ export interface FileRouteTypes {
     | '/_authenticated/clients/'
     | '/_authenticated/documents/'
     | '/_authenticated/invoices/'
+    | '/_authenticated/proposals/'
     | '/_authenticated/portal/'
     | '/_authenticated/projects/'
     | '/_authenticated/settings/'
@@ -364,6 +377,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedClientsClientIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/proposals/': {
+      id: '/_authenticated/proposals/'
+      path: '/proposals'
+      fullPath: '/proposals/'
+      preLoaderRoute: typeof AuthenticatedProposalsIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
   }
 }
 
@@ -379,6 +399,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedInvoicesIndexRoute: typeof AuthenticatedInvoicesIndexRoute
   AuthenticatedPortalIndexRoute: typeof AuthenticatedPortalIndexRoute
   AuthenticatedProjectsIndexRoute: typeof AuthenticatedProjectsIndexRoute
+  AuthenticatedProposalsIndexRoute: typeof AuthenticatedProposalsIndexRoute
   AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
   AuthenticatedToolsIndexRoute: typeof AuthenticatedToolsIndexRoute
 }
@@ -395,6 +416,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedInvoicesIndexRoute: AuthenticatedInvoicesIndexRoute,
   AuthenticatedPortalIndexRoute: AuthenticatedPortalIndexRoute,
   AuthenticatedProjectsIndexRoute: AuthenticatedProjectsIndexRoute,
+  AuthenticatedProposalsIndexRoute: AuthenticatedProposalsIndexRoute,
   AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
   AuthenticatedToolsIndexRoute: AuthenticatedToolsIndexRoute,
 }

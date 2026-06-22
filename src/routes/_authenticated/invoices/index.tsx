@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/integrations/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { Plus, X, FileText, TrendingUp, DollarSign, AlertCircle, Clock } from 'lucide-react'
+import { Plus, X, FileText, TrendingUp, DollarSign, AlertCircle, Clock, Trash2 } from 'lucide-react'
 import type { Invoice, Client, Project } from '@/integrations/supabase/types'
 
 export const Route = createFileRoute('/_authenticated/invoices/')({
@@ -102,6 +102,17 @@ function InvoicesPage() {
   const totalPaid = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + i.total, 0)
   const totalPending = invoices.filter(i => i.status === 'sent').reduce((s, i) => s + i.total, 0)
   const overdueCount = invoices.filter(i => i.status === 'overdue').length
+
+  const handleStatusChange = async (id: string, newStatus: Invoice['status']) => {
+    await supabase.from('invoices').update({ status: newStatus }).eq('id', id)
+    setInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, status: newStatus } : inv))
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('האם למחוק חשבונית זו? פעולה זו אינה הפיכה.')) return
+    const { error } = await supabase.from('invoices').delete().eq('id', id)
+    if (!error) setInvoices(prev => prev.filter(inv => inv.id !== id))
+  }
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -220,6 +231,7 @@ function InvoicesPage() {
                   <th className="px-4 py-3 font-medium">תאריך פירעון</th>
                   <th className="px-4 py-3 font-medium">סכום</th>
                   <th className="px-4 py-3 font-medium">סטטוס</th>
+                  <th className="px-4 py-3 font-medium"></th>
                 </tr>
               </thead>
               <tbody>
@@ -232,9 +244,26 @@ function InvoicesPage() {
                     <td className="px-4 py-3 text-slate-500">{inv.due_date ? formatDate(inv.due_date) : '—'}</td>
                     <td className="px-4 py-3 font-semibold text-slate-800">{formatCurrency(inv.total, inv.currency)}</td>
                     <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[inv.status]}`}>
-                        {STATUS_LABELS[inv.status]}
-                      </span>
+                      <select
+                        value={inv.status}
+                        onChange={e => handleStatusChange(inv.id, e.target.value as Invoice['status'])}
+                        className={`text-xs px-2 py-0.5 rounded-full font-medium cursor-pointer border-0 outline-none appearance-none ${STATUS_COLORS[inv.status]}`}
+                      >
+                        {(Object.keys(STATUS_LABELS) as Invoice['status'][]).map(s => (
+                          <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-4 py-3">
+                      {profile?.role !== 'viewer' && (
+                        <button
+                          onClick={() => handleDelete(inv.id)}
+                          className="p-1.5 rounded hover:bg-red-50 text-slate-300 hover:text-red-500 transition"
+                          title="מחק חשבונית"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

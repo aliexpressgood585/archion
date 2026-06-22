@@ -81,6 +81,7 @@ const translations = {
     language: 'שפה',
     hebrew: 'עברית',
     english: 'אנגלית',
+    proposals: 'הצעות מחיר',
   },
   en: {
     dashboard: 'Dashboard',
@@ -162,6 +163,7 @@ const translations = {
     language: 'Language',
     hebrew: 'Hebrew',
     english: 'English',
+    proposals: 'Proposals',
   },
 } as const
 

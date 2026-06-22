@@ -12,6 +12,7 @@ import {
   LogOut,
   Wrench,
   ShieldOff,
+  ClipboardList,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
@@ -31,6 +32,7 @@ const navItems: NavItem[] = [
   { to: '/projects', icon: FolderOpen, labelKey: 'projects' },
   { to: '/clients', icon: Users, labelKey: 'clients' },
   { to: '/invoices', icon: FileText, labelKey: 'invoices' },
+  { to: '/proposals', icon: ClipboardList, labelKey: 'proposals' },
   { to: '/documents', icon: File, labelKey: 'documents' },
   { to: '/tools', icon: Wrench, labelKey: 'tools' },
   { to: '/settings', icon: Settings, labelKey: 'settings' },
